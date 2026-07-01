@@ -16,6 +16,7 @@ class AutomationConfig:
     poll_interval: float = 2
     scroll_limit: int = 12
     render_wait: float = 5
+    build_timeout: float = 300
 
     @property
     def queries_path(self) -> Path:
@@ -36,10 +37,6 @@ class AutomationConfig:
     @property
     def rawfile_target(self) -> Path:
         return self.arkts_dir / "entry" / "src" / "main" / "resources" / "rawfile" / "sample.jsonl"
-
-    @property
-    def legacy_rawfile_target(self) -> Path:
-        return self.arkts_dir / "entry" / "src" / "main" / "resources" / "rawfile" / "sample.json"
 
     @property
     def build_script(self) -> Path:

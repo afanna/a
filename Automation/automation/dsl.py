@@ -37,36 +37,45 @@ class DslExtractor:
     def save_jsonl(self, extraction: DslExtraction, path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            for record in extraction.records:
-                f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+            f.write("[")
+            for index, record in enumerate(extraction.records):
+                if index > 0:
+                    f.write(",\n")
+                f.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")))
+            f.write("]\n")
         return path
 
     def _parse_records(self, text: str) -> list[dict]:
+        parsed_source = parse_json_records(text)
+        if parsed_source:
+            return parsed_source
+
         records: list[dict] = []
         for line in text.splitlines():
             line = line.strip()
             if not any(keyword in line for keyword in self.keywords):
                 continue
-            parsed = parse_json_object(line)
-            if parsed is not None:
-                records.append(parsed)
+            records.extend(parse_json_records(line))
         if records:
             return records
 
         for candidate in iter_json_candidates(text):
-            parsed = parse_json_object(candidate)
-            if parsed is not None and any(keyword in candidate for keyword in self.keywords):
-                records.append(parsed)
+            if any(keyword in candidate for keyword in self.keywords):
+                records.extend(parse_json_records(candidate))
         return records
 
 
-def parse_json_object(text: str) -> dict | None:
+def parse_json_records(text: str) -> list[dict]:
     text = strip_code_fence(text)
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
-        return None
-    return value if isinstance(value, dict) else None
+        return []
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
 
 
 def strip_code_fence(text: str) -> str:
@@ -77,11 +86,32 @@ def strip_code_fence(text: str) -> str:
 
 
 def iter_json_candidates(text: str):
-    start_stack: list[int] = []
+    start: int | None = None
+    depth = 0
+    in_string = False
+    escaped = False
+
     for index, char in enumerate(text):
-        if char == "{":
-            start_stack.append(index)
-        elif char == "}" and start_stack:
-            start = start_stack.pop()
-            yield text[start : index + 1]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char in "}]":
+            if depth == 0:
+                continue
+            depth -= 1
+            if depth == 0 and start is not None:
+                yield text[start : index + 1]
+                start = None
 

@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import time
 import json
+import os
 from pathlib import Path
 
 from .config import AutomationConfig
@@ -28,7 +29,7 @@ class ArkTsRunner:
             raise FileNotFoundError(dsl_path)
         if dsl_path.suffix.lower() != ".jsonl":
             raise ValueError(f"DSL file must be JSONL: {dsl_path}")
-        validate_jsonl(dsl_path)
+        validate_dsl_array_file(dsl_path)
         self.config.rawfile_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(dsl_path, self.config.rawfile_target)
         return self.config.rawfile_target
@@ -38,7 +39,11 @@ class ArkTsRunner:
         if not script.exists():
             raise FileNotFoundError(f"ArkTS build script not found: {script}")
 
-        command = ["cmd", "/c", "call", str(script)] if script.suffix.lower() in {"", ".bat", ".cmd"} else [str(script)]
+        command = (
+            ["cmd", "/c", "call", str(script)]
+            if os.name == "nt" and script.suffix.lower() in {"", ".bat", ".cmd"}
+            else [str(script)]
+        )
 
         completed = subprocess.run(
             command,
@@ -47,7 +52,7 @@ class ArkTsRunner:
             text=True,
             input="\n",
             capture_output=True,
-            timeout=300,
+            timeout=self.config.build_timeout,
         )
 
         if completed.returncode != 0:
@@ -57,13 +62,15 @@ class ArkTsRunner:
             )
 
 
-def validate_jsonl(path: Path) -> None:
+def validate_dsl_array_file(path: Path) -> None:
     with open(path, "r", encoding="utf-8") as f:
-        for line_number, line in enumerate(f, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            try:
-                json.loads(stripped)
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"Invalid JSONL at {path}:{line_number}: {exc}") from exc
+        try:
+            value = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid DSL array file at {path}: {exc}") from exc
+
+    if not isinstance(value, list):
+        raise ValueError(f"DSL file must be a JSON array: {path}")
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise ValueError(f"DSL array item must be a JSON object at {path}[{index}]")
