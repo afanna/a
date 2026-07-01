@@ -9,6 +9,13 @@ from .ui_tree import UiTree
 
 
 DSL_KEYWORDS = ("createSurface", "updateComponents", "updateDataModel", "v0.9")
+REQUIRED_DSL_KEYS = ("createSurface", "updateComponents", "updateDataModel")
+GENUI_MARKER = "genui"
+CARDSPEC_MARKER = "cardspec"
+DSL_RECORD_START_RE = re.compile(
+    r'\{\s*"version"\s*:\s*"v0\.9"\s*,\s*"(?P<op>createSurface|updateComponents|updateDataModel)"\s*:',
+    re.S,
+)
 
 
 @dataclass(frozen=True)
@@ -27,12 +34,31 @@ class DslExtractor:
         self.keywords = keywords
 
     def extract_from_tree(self, qid: str, tree: UiTree) -> DslExtraction:
-        texts = [node.text for node in tree.nodes if node.text and any(k in node.text for k in self.keywords)]
-        if not texts:
-            return DslExtraction(qid=qid, records=[], source_text="")
-        source = "\n".join(texts)
-        records = self._parse_records(source)
-        return DslExtraction(qid=qid, records=records, source_text=source)
+        best_source = ""
+        best_records: list[dict] = []
+
+        for source in iter_single_dsl_nodes(tree, self.keywords):
+            records = repair_and_extract(source)
+            if is_complete_dsl(records):
+                return DslExtraction(qid=qid, records=records, source_text=source)
+            if len(records) > len(best_records):
+                best_source, best_records = source, records
+
+        for source in iter_genui_cardspec_blocks(tree):
+            records = repair_and_extract(source)
+            if is_complete_dsl(records):
+                return DslExtraction(qid=qid, records=records, source_text=source)
+            if len(records) > len(best_records):
+                best_source, best_records = source, records
+
+        for source in iter_nearby_dsl_sibling_blocks(tree, self.keywords):
+            records = repair_and_extract(source)
+            if is_complete_dsl(records):
+                return DslExtraction(qid=qid, records=records, source_text=source)
+            if len(records) > len(best_records):
+                best_source, best_records = source, records
+
+        return DslExtraction(qid=qid, records=[], source_text=best_source)
 
     def save_jsonl(self, extraction: DslExtraction, path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,7 +92,78 @@ class DslExtractor:
 
 
 def parse_json_records(text: str) -> list[dict]:
+    return repair_and_extract(text)
+
+
+def repair_and_extract(text: str) -> list[dict]:
     text = strip_code_fence(text)
+    records = parse_json_value(text)
+    if records:
+        return records
+
+    records = []
+    for segment in iter_dsl_record_segments(text):
+        records.extend(parse_repaired_json_records(segment))
+    return dedupe_records(records)
+
+
+def iter_single_dsl_nodes(tree: UiTree, keywords: tuple[str, ...]):
+    for node in tree.nodes:
+        text = node.text.strip()
+        if text and any(keyword in text for keyword in keywords):
+            yield text
+
+
+def iter_genui_cardspec_blocks(tree: UiTree):
+    text_nodes = [(index, node.text.strip()) for index, node in enumerate(tree.nodes) if node.text.strip()]
+    marker_indexes = [
+        (position, text.lower())
+        for position, (_, text) in enumerate(text_nodes)
+        if text.lower() in {GENUI_MARKER, CARDSPEC_MARKER}
+    ]
+
+    for marker_position, marker in marker_indexes:
+        if marker != GENUI_MARKER:
+            continue
+        end_position = next(
+            (
+                position
+                for position, next_marker in marker_indexes
+                if position > marker_position and next_marker == CARDSPEC_MARKER
+            ),
+            None,
+        )
+        if end_position is None or end_position <= marker_position + 1:
+            continue
+        yield "\n".join(text for _, text in text_nodes[marker_position + 1 : end_position])
+
+
+def iter_nearby_dsl_sibling_blocks(tree: UiTree, keywords: tuple[str, ...], max_index_distance: int = 5):
+    indexed_nodes = list(enumerate(tree.nodes))
+    anchor_indexes = [
+        index
+        for index, node in indexed_nodes
+        if node.text.strip() and any(keyword in node.text for keyword in keywords)
+    ]
+    yielded: set[tuple[int, int]] = set()
+
+    for anchor_index in anchor_indexes:
+        start = max(0, anchor_index - max_index_distance)
+        end = min(len(tree.nodes), anchor_index + max_index_distance + 1)
+        key = (start, end)
+        if key in yielded:
+            continue
+        yielded.add(key)
+        texts = [node.text.strip() for node in tree.nodes[start:end] if node.text.strip()]
+        if texts:
+            yield "\n".join(texts)
+
+
+def is_complete_dsl(records: list[dict]) -> bool:
+    return all(any(required_key in record for record in records) for required_key in REQUIRED_DSL_KEYS)
+
+
+def parse_json_value(text: str) -> list[dict]:
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
@@ -76,6 +173,105 @@ def parse_json_records(text: str) -> list[dict]:
     if isinstance(value, list):
         return [item for item in value if isinstance(item, dict)]
     return []
+
+
+def parse_repaired_json_records(text: str) -> list[dict]:
+    for candidate in iter_repair_candidates(text):
+        for parser in (parse_json_value, parse_json_prefix_value):
+            records = parser(candidate)
+            if records:
+                return records
+    return []
+
+
+def parse_json_prefix_value(text: str) -> list[dict]:
+    try:
+        value, _ = json.JSONDecoder().raw_decode(text)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def iter_dsl_record_segments(text: str):
+    matches = list(DSL_RECORD_START_RE.finditer(text))
+    if matches:
+        for index, match in enumerate(matches):
+            end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+            yield trim_record_segment(text[match.start() : end])
+        return
+
+    yield from iter_json_candidates(text)
+
+
+def trim_record_segment(text: str) -> str:
+    segment = text.strip()
+    start = segment.find("{")
+    if start > 0:
+        segment = segment[start:]
+    return segment.strip().rstrip(",")
+
+
+def iter_repair_candidates(text: str):
+    candidate = trim_record_segment(strip_code_fence(text))
+    if not candidate:
+        return
+    yield candidate
+
+    balanced = balance_json_boundaries(candidate)
+    if balanced != candidate:
+        yield balanced
+
+
+def balance_json_boundaries(text: str) -> str:
+    stack: list[str] = []
+    output: list[str] = []
+    in_string = False
+    escaped = False
+
+    for char in text:
+        output.append(char)
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            stack.append("}")
+        elif char == "[":
+            stack.append("]")
+        elif char in "}]":
+            if stack and char == stack[-1]:
+                stack.pop()
+            else:
+                output.pop()
+
+    if in_string:
+        output.append('"')
+
+    output.extend(reversed(stack))
+    return "".join(output)
+
+
+def dedupe_records(records: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for record in records:
+        fingerprint = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        if fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        unique.append(record)
+    return unique
 
 
 def strip_code_fence(text: str) -> str:
