@@ -38,6 +38,10 @@ class AutomationConfig:
         return self.arkts_dir / "entry" / "src" / "main" / "resources" / "rawfile" / "sample.jsonl"
 
     @property
+    def legacy_rawfile_target(self) -> Path:
+        return self.arkts_dir / "entry" / "src" / "main" / "resources" / "rawfile" / "sample.json"
+
+    @property
     def build_script(self) -> Path:
         bat = self.arkts_dir / "build_and_run.bat"
         if bat.exists():
@@ -47,4 +51,3 @@ class AutomationConfig:
     @property
     def work_dir(self) -> Path:
         return self.project_root / "Automation" / ".work"
-

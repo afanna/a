@@ -42,5 +42,6 @@ Batch mode first sends all queries and extracts all DSL files. Only after all DS
 
 - DSL files: `dsl/{qid}.jsonl`
 - ArkTS rawfile target: `ArkTs/entry/src/main/resources/rawfile/sample.jsonl`
-- Screenshots: `output/{qid}.jpeg`
 
+`sample` must remain JSONL. The runner validates every non-empty line before copying DSL into the ArkTS rawfile directory.
+- Screenshots: `output/{qid}.jpeg`

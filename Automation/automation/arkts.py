@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import time
+import json
 from pathlib import Path
 
 from .config import AutomationConfig
@@ -25,6 +26,9 @@ class ArkTsRunner:
     def copy_dsl_to_rawfile(self, dsl_path: Path) -> Path:
         if not dsl_path.exists():
             raise FileNotFoundError(dsl_path)
+        if dsl_path.suffix.lower() != ".jsonl":
+            raise ValueError(f"DSL file must be JSONL: {dsl_path}")
+        validate_jsonl(dsl_path)
         self.config.rawfile_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(dsl_path, self.config.rawfile_target)
         return self.config.rawfile_target
@@ -41,3 +45,14 @@ class ArkTsRunner:
         if completed.returncode != 0:
             raise RuntimeError(f"ArkTS build/run failed with exit code {completed.returncode}: {script}")
 
+
+def validate_jsonl(path: Path) -> None:
+    with open(path, "r", encoding="utf-8") as f:
+        for line_number, line in enumerate(f, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSONL at {path}:{line_number}: {exc}") from exc
