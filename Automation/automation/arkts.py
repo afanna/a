@@ -37,13 +37,24 @@ class ArkTsRunner:
         script = self.config.build_script
         if not script.exists():
             raise FileNotFoundError(f"ArkTS build script not found: {script}")
-        if script.suffix.lower() == ".bat":
-            command = ["cmd", "/c", str(script)]
-        else:
-            command = [str(script)]
-        completed = subprocess.run(command, cwd=str(self.config.arkts_dir), check=False, text=True)
+
+        command = ["cmd", "/c", "call", str(script)] if script.suffix.lower() in {"", ".bat", ".cmd"} else [str(script)]
+
+        completed = subprocess.run(
+            command,
+            cwd=str(self.config.arkts_dir),
+            check=False,
+            text=True,
+            input="\n",
+            capture_output=True,
+            timeout=300,
+        )
+
         if completed.returncode != 0:
-            raise RuntimeError(f"ArkTS build/run failed with exit code {completed.returncode}: {script}")
+            raise RuntimeError(
+                f"ArkTS build/run failed with exit code {completed.returncode}: {script}\n"
+                f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
+            )
 
 
 def validate_jsonl(path: Path) -> None:
