@@ -33,7 +33,10 @@ class AutomationPipeline:
         cases = load_queries(queries_path or self.config.queries_path)
         query_results: list[QueryResult] = []
         for case in cases:
-            query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
+            try:
+                query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
+            except TimeoutError:
+                continue
 
         render_results: list[RenderResult] = []
         for result in query_results:

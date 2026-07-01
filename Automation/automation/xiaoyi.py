@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,7 @@ class XiaoyiClient:
         self.hdc = hdc
         self.extractor = extractor or DslExtractor()
         self.dump_path = config.work_dir / "current_ui_tree.json"
+        self.last_dsl_fingerprint: str | None = None
 
     def dump_tree(self) -> UiTree:
         self.hdc.dump_layout(self.dump_path, self.config.remote_dump)
@@ -48,12 +50,24 @@ class XiaoyiClient:
         self.hdc.ui_input("click", *send.center)
 
     def collect_dsl_for_query(self, qid: str, query: str) -> QueryResult:
-        self.wait_ready()
-        self.send_query(query)
-        extraction = self._wait_and_extract(qid)
-        dsl_path = self.config.dsl_dir / f"{qid}.jsonl"
-        self.extractor.save_jsonl(extraction, dsl_path)
-        return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
+        last_error: Exception | None = None
+        for attempt in range(1, self.config.query_max_attempts + 1):
+            try:
+                self.wait_ready()
+                self.send_query(query)
+                deadline = time.monotonic() + self.config.query_attempt_timeout
+                time.sleep(min(self.config.post_query_wait, max(0, deadline - time.monotonic())))
+                self._scroll_down(check=False)
+                extraction = self._wait_and_extract(qid, deadline)
+                self.last_dsl_fingerprint = dsl_fingerprint(extraction)
+                dsl_path = self.config.dsl_dir / f"{qid}.jsonl"
+                self.extractor.save_jsonl(extraction, dsl_path)
+                return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
+            except TimeoutError as exc:
+                last_error = exc
+                if attempt < self.config.query_max_attempts:
+                    continue
+        raise TimeoutError(f"DSL not found for query {qid} after {self.config.query_max_attempts} attempts") from last_error
 
     def _ensure_input(self) -> tuple[int, int]:
         tree = self.dump_tree()
@@ -75,9 +89,7 @@ class XiaoyiClient:
         self.hdc.ui_input("keyEvent", 2072, 2017, check=False)
         self.hdc.ui_input("keyEvent", 2055, check=False)
 
-    def _wait_and_extract(self, qid: str) -> DslExtraction:
-        sent_at = time.monotonic()
-        deadline = sent_at + self.config.reply_timeout
+    def _wait_and_extract(self, qid: str, deadline: float) -> DslExtraction:
         last_len = -1
         stable_count = 0
         latest_tree: UiTree | None = None
@@ -92,25 +104,39 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            enough_time = time.monotonic() - sent_at >= self.config.extract_delay
-            if enough_time and has_dsl and not busy and stable_count >= 1:
+            if has_dsl and not busy and stable_count >= 1:
                 extraction = self.extractor.extract_from_tree(qid, tree)
-                if extraction.found:
+                if self._is_new_extraction(extraction):
                     return extraction
             time.sleep(self.config.poll_interval)
 
         if latest_tree is not None:
             extraction = self.extractor.extract_from_tree(qid, latest_tree)
-            if extraction.found:
+            if self._is_new_extraction(extraction):
                 return extraction
-        return self._scroll_scan_for_dsl(qid)
+        return self._scroll_scan_for_dsl(qid, deadline)
 
-    def _scroll_scan_for_dsl(self, qid: str) -> DslExtraction:
+    def _scroll_scan_for_dsl(self, qid: str, deadline: float) -> DslExtraction:
         for _ in range(self.config.scroll_limit):
-            self.hdc.ui_input("swipe", 600, 1800, 600, 500, 600, check=False)
+            if time.monotonic() > deadline:
+                break
+            self._scroll_down(check=False)
             tree = self.dump_tree()
             extraction = self.extractor.extract_from_tree(qid, tree)
-            if extraction.found:
+            if self._is_new_extraction(extraction):
                 return extraction
         raise TimeoutError(f"DSL not found for query {qid}")
+
+    def _scroll_down(self, check: bool = True) -> None:
+        self.hdc.ui_input("swipe", 600, 1800, 600, 500, 600, check=check)
+
+    def _is_new_extraction(self, extraction: DslExtraction) -> bool:
+        if not extraction.found:
+            return False
+        fingerprint = dsl_fingerprint(extraction)
+        return fingerprint != self.last_dsl_fingerprint
+
+
+def dsl_fingerprint(extraction: DslExtraction) -> str:
+    return json.dumps(extraction.records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 

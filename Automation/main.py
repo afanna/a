@@ -17,6 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hdc", default="hdc")
     parser.add_argument("--extract-delay", type=float, default=30)
     parser.add_argument("--reply-timeout", type=float, default=120)
+    parser.add_argument("--post-query-wait", type=float, default=30)
+    parser.add_argument("--query-attempt-timeout", type=float, default=90)
+    parser.add_argument("--query-max-attempts", type=int, default=3)
+    parser.add_argument("--screenshot-min-bytes", type=int, default=1000)
+    parser.add_argument("--screenshot-retries", type=int, default=3)
+    parser.add_argument("--screenshot-write-wait", type=float, default=1)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     one = subparsers.add_parser("one", help="Send one query, extract DSL, render, and screenshot")
@@ -38,6 +44,12 @@ def make_config(args: argparse.Namespace) -> AutomationConfig:
         hdc=args.hdc,
         extract_delay=args.extract_delay,
         reply_timeout=args.reply_timeout,
+        post_query_wait=args.post_query_wait,
+        query_attempt_timeout=args.query_attempt_timeout,
+        query_max_attempts=args.query_max_attempts,
+        screenshot_min_bytes=args.screenshot_min_bytes,
+        screenshot_retries=args.screenshot_retries,
+        screenshot_write_wait=args.screenshot_write_wait,
     )
 
 

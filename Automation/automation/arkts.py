@@ -21,7 +21,13 @@ class ArkTsRunner:
         self.build_and_run()
         time.sleep(self.config.render_wait)
         output = self.config.output_dir / f"{qid}.jpeg"
-        self.hdc.snapshot_display(output, self.config.remote_snapshot)
+        self.hdc.snapshot_display(
+            output,
+            self.config.remote_snapshot,
+            min_bytes=self.config.screenshot_min_bytes,
+            retries=self.config.screenshot_retries,
+            write_wait=self.config.screenshot_write_wait,
+        )
         return output
 
     def copy_dsl_to_rawfile(self, dsl_path: Path) -> Path:

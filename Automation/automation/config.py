@@ -13,10 +13,16 @@ class AutomationConfig:
     ready_timeout: float = 60
     reply_timeout: float = 120
     extract_delay: float = 30
+    post_query_wait: float = 30
+    query_attempt_timeout: float = 90
+    query_max_attempts: int = 3
     poll_interval: float = 2
     scroll_limit: int = 12
     render_wait: float = 5
     build_timeout: float = 300
+    screenshot_min_bytes: int = 1000
+    screenshot_retries: int = 3
+    screenshot_write_wait: float = 1
 
     @property
     def queries_path(self) -> Path:

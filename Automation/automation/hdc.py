@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -53,13 +54,39 @@ class HdcClient:
     def ui_input(self, action: str, *args: object, check: bool = True) -> CommandResult:
         return self.shell("uitest", "uiInput", action, *args, timeout=10, check=check)
 
-    def snapshot_display(self, local_path: Path, remote_path: str) -> Path:
+    def snapshot_display(
+        self,
+        local_path: Path,
+        remote_path: str,
+        *,
+        min_bytes: int = 1000,
+        retries: int = 3,
+        write_wait: float = 1,
+    ) -> Path:
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        result = self.shell("snapshot_display", "-f", remote_path, timeout=30, check=False)
-        if result.returncode != 0:
-            self.shell("snapshot_display", remote_path, timeout=30)
-        self.run(["file", "recv", remote_path, str(local_path)], timeout=30)
-        return local_path
+        last_error: Exception | None = None
+
+        for _ in range(retries):
+            local_path.unlink(missing_ok=True)
+            self.shell("rm", "-f", remote_path, timeout=10, check=False)
+            result = self.shell("snapshot_display", "-f", remote_path, timeout=30, check=False)
+            if result.returncode != 0:
+                result = self.shell("snapshot_display", remote_path, timeout=30, check=False)
+                if result.returncode != 0:
+                    last_error = HdcError(format_command_failure(result))
+                    continue
+            time.sleep(write_wait)
+
+            recv = self.run(["file", "recv", remote_path, str(local_path)], timeout=30, check=False)
+            if recv.returncode != 0:
+                last_error = HdcError(format_command_failure(recv))
+                continue
+            if local_path.exists() and local_path.stat().st_size > min_bytes:
+                return local_path
+            last_error = HdcError(f"Screenshot file is too small: {local_path}")
+            local_path.unlink(missing_ok=True)
+
+        raise HdcError(f"Failed to capture a valid screenshot after {retries} attempts") from last_error
 
 
 def format_command_failure(result: CommandResult) -> str:
