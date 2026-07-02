@@ -54,25 +54,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def make_config(args: argparse.Namespace) -> AutomationConfig:
-    return AutomationConfig(
-        project_root=args.project_root,
-        hdc=args.hdc,
-        extract_delay=args.extract_delay,
-        reply_timeout=args.reply_timeout,
-        post_query_wait=args.post_query_wait,
-        query_attempt_timeout=args.query_attempt_timeout,
-        query_max_attempts=args.query_max_attempts,
-        build_timeout=args.build_timeout,
-        render_wait=args.render_wait,
-        deveco_sdk_home=args.deveco_sdk_home,
-        java_home=args.java_home,
-        bundle_name=args.bundle_name,
-        ability_name=args.ability_name,
-        module_name=args.module_name,
-        screenshot_min_bytes=args.screenshot_min_bytes,
-        screenshot_retries=args.screenshot_retries,
-        screenshot_write_wait=args.screenshot_write_wait,
-    )
+    values = {
+        "project_root": args.project_root,
+        "hdc": args.hdc,
+        "extract_delay": args.extract_delay,
+        "reply_timeout": args.reply_timeout,
+        "post_query_wait": args.post_query_wait,
+        "query_attempt_timeout": args.query_attempt_timeout,
+        "query_max_attempts": args.query_max_attempts,
+        "build_timeout": args.build_timeout,
+        "render_wait": args.render_wait,
+        "bundle_name": args.bundle_name,
+        "ability_name": args.ability_name,
+        "module_name": args.module_name,
+        "screenshot_min_bytes": args.screenshot_min_bytes,
+        "screenshot_retries": args.screenshot_retries,
+        "screenshot_write_wait": args.screenshot_write_wait,
+    }
+    if args.deveco_sdk_home is not None:
+        values["deveco_sdk_home"] = args.deveco_sdk_home
+    if args.java_home is not None:
+        values["java_home"] = args.java_home
+    return AutomationConfig(**values)
 
 
 def main() -> int:
