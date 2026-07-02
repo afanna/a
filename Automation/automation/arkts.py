@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
-import tempfile
-import time
 import json
 import os
-from subprocess import TimeoutExpired
+import shutil
+import subprocess
+import time
+from datetime import datetime
 from pathlib import Path
+from typing import Mapping, Sequence
 
 from .config import AutomationConfig
 from .hdc import HdcClient
@@ -43,71 +43,121 @@ class ArkTsRunner:
         return self.config.rawfile_target
 
     def build_and_run(self) -> None:
-        script = self.config.build_script
-        if not script.exists():
-            raise FileNotFoundError(f"ArkTS build script not found: {script}")
+        env = self.build_env()
+        self.run_hvigor("clean", env)
+        self.run_hvigor("assembleHap", env)
+        self.print_hap_outputs()
 
-        command = (
-            ["cmd", "/c", "call", str(script)]
-            if os.name == "nt" and script.suffix.lower() in {"", ".bat", ".cmd"}
-            else [str(script)]
+        if not self.config.signed_hap_path.exists():
+            raise FileNotFoundError(f"Signed HAP was not generated: {self.config.signed_hap_path}")
+
+        remote_dir = f"/data/local/tmp/tmp_{datetime.now().strftime('%H%M%S')}"
+        remote_hap = f"{remote_dir}/{self.config.signed_hap_path.name}"
+        try:
+            self.hdc.shell("mkdir", "-p", remote_dir, timeout=30)
+            self.hdc.run(["file", "send", self.config.signed_hap_path, remote_hap], timeout=self.config.build_timeout)
+            self.hdc.shell("bm", "install", "-p", remote_dir, timeout=self.config.build_timeout)
+        finally:
+            self.hdc.shell("rm", "-rf", remote_dir, timeout=30, check=False)
+
+        self.hdc.shell("aa", "force-stop", self.config.bundle_name, timeout=30, check=False)
+        self.hdc.shell(
+            "aa",
+            "start",
+            "-a",
+            self.config.ability_name,
+            "-b",
+            self.config.bundle_name,
+            "-m",
+            self.config.module_name,
+            timeout=30,
         )
 
-        total_timeout = max(self.config.build_timeout, self.config.build_wait)
-        with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as stdout_file, tempfile.TemporaryFile(
-            "w+", encoding="utf-8", errors="replace"
-        ) as stderr_file:
-            process = subprocess.Popen(
-                command,
-                cwd=str(self.config.arkts_dir),
-                text=True,
-                stdin=subprocess.PIPE,
-                stdout=stdout_file,
-                stderr=stderr_file,
-            )
+    def build_env(self) -> dict[str, str]:
+        env = os.environ.copy()
+        deveco_sdk_home = config_path_or_env(self.config.deveco_sdk_home, "DEVECO_SDK_HOME")
+        java_home = config_path_or_env(self.config.java_home, "JAVA_HOME")
+        if deveco_sdk_home is None:
+            raise RuntimeError("DEVECO_SDK_HOME is not configured. Pass --deveco-sdk-home or set the environment variable.")
+        if java_home is None:
+            raise RuntimeError("JAVA_HOME is not configured. Pass --java-home or set the environment variable.")
+        if not deveco_sdk_home.exists():
+            raise RuntimeError(f"DEVECO_SDK_HOME does not exist: {deveco_sdk_home}")
+        if not java_home.exists():
+            raise RuntimeError(f"JAVA_HOME does not exist: {java_home}")
 
-            try:
-                process.wait(timeout=self.config.build_wait)
-            except TimeoutExpired as exc:
-                write_stdin_line(process)
-                remaining_timeout = max(self.config.build_pause_grace, total_timeout - self.config.build_wait)
-                try:
-                    process.wait(timeout=remaining_timeout)
-                except TimeoutExpired:
-                    process.terminate()
-                    try:
-                        process.wait(timeout=self.config.build_pause_grace)
-                    except TimeoutExpired:
-                        process.kill()
-                        process.wait()
-                    stdout, stderr = read_process_output(stdout_file, stderr_file)
-                    raise RuntimeError(
-                        f"ArkTS build/run timed out after {total_timeout} seconds: {script}\n"
-                        f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
-                    ) from exc
+        java_bin = java_home / "bin"
+        java_executable = java_bin / ("java.exe" if os.name == "nt" else "java")
+        if not java_executable.exists():
+            raise RuntimeError(f"JAVA_HOME does not contain a Java executable: {java_executable}")
 
-            stdout, stderr = read_process_output(stdout_file, stderr_file)
-            if process.returncode != 0:
-                raise RuntimeError(
-                    f"ArkTS build/run failed with exit code {process.returncode}: {script}\n"
-                    f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
-                )
+        path_parts = [str(java_bin)]
+        toolchains = deveco_sdk_home / "toolchains"
+        if toolchains.exists():
+            path_parts.append(str(toolchains))
+        path_parts.append(env.get("PATH", ""))
+
+        env["DEVECO_SDK_HOME"] = str(deveco_sdk_home)
+        env["JAVA_HOME"] = str(java_home)
+        env["PATH"] = os.pathsep.join(path_parts)
+        return env
+
+    def run_hvigor(self, action: str, env: Mapping[str, str]) -> None:
+        command = hvigor_command(self.config.arkts_dir, action)
+        run_local_command(command, self.config.arkts_dir, env, self.config.build_timeout)
+
+    def print_hap_outputs(self) -> None:
+        print(f"HAP output directory: {self.config.hap_output_dir}")
+        for hap in sorted(self.config.hap_output_dir.glob("*.hap")):
+            print(f"HAP: {hap}")
 
 
-def write_stdin_line(process: subprocess.Popen) -> None:
-    if process.stdin is None or process.stdin.closed:
-        return
+def config_path_or_env(value: Path | None, env_name: str) -> Path | None:
+    if value is not None:
+        return value
+    raw_value = os.environ.get(env_name)
+    if not raw_value:
+        return None
+    return Path(raw_value)
+
+
+def hvigor_command(arkts_dir: Path, action: str) -> list[str]:
+    executable = find_hvigor_executable(arkts_dir)
+    if os.name == "nt":
+        return ["cmd", "/c", "call", str(executable), action]
+    return [str(executable), action]
+
+
+def find_hvigor_executable(arkts_dir: Path) -> Path | str:
+    for name in ("hvigorw.bat", "hvigorw", "hvigrow.bat", "hvigrow"):
+        candidate = arkts_dir / name
+        if candidate.exists():
+            return candidate
+    return "hvigorw"
+
+
+def run_local_command(command: Sequence[str], cwd: Path, env: Mapping[str, str], timeout: float) -> None:
     try:
-        process.stdin.write("\n")
-        process.stdin.flush()
-    except OSError:
-        return
-
-
-def read_process_output(stdout_file, stderr_file) -> tuple[str, str]:
-    stdout_file.seek(0)
-    stderr_file.seek(0)
-    return stdout_file.read(), stderr_file.read()
+        completed = subprocess.run(
+            list(command),
+            cwd=str(cwd),
+            env=dict(env),
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Command timed out after {timeout} seconds: {' '.join(command)}") from exc
+    if completed.stdout:
+        print(completed.stdout, end="" if completed.stdout.endswith("\n") else "\n")
+    if completed.stderr:
+        print(completed.stderr, end="" if completed.stderr.endswith("\n") else "\n")
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Command failed with exit code {completed.returncode}: {' '.join(command)}\n"
+            f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
+        )
 
 
 def validate_dsl_array_file(path: Path) -> None:

@@ -13,7 +13,7 @@ The design stays efficient, simple, modular, and decoupled. Shell scripts under 
 - `automation/ui_tree.py`: UI tree parsing and locator scoring.
 - `automation/xiaoyi.py`: wait ready, send query, wait reply, extract DSL.
 - `automation/dsl.py`: DSL keyword search and JSONL persistence.
-- `automation/arkts.py`: copy DSL to ArkTS rawfile, call build script, screenshot.
+- `automation/arkts.py`: copy DSL to ArkTS rawfile, build/install/launch ArkTS, screenshot.
 - `automation/pipeline.py`: single and batch orchestration.
 
 ## Commands
@@ -38,15 +38,15 @@ python Automation\main.py batch
 
 Batch mode first sends all queries and extracts all DSL files. Only after all DSL files are collected does it render each case and save screenshots.
 
-If `ArkTs/build_and_run` runs render work and then ends with `pause`, keep the default waits or tune them:
+Configure DevEco SDK and JDK paths through arguments or environment variables:
 
 ```powershell
-python Automation\main.py --build-wait 60 --render-wait 5 batch
+python Automation\main.py --deveco-sdk-home "D:\DevEco\Sdk" --java-home "D:\DevEco\jbr" --render-wait 10 batch
 ```
 
-`--build-wait` is the minimum time to let build/install/start/render script work run before automation sends Enter for the trailing pause. If the script is still busy, it can keep running until `--build-timeout`. `--render-wait` waits after the script exits before taking the screenshot.
+The Python runner performs the ArkTS flow directly: `hvigor clean`, `hvigor assembleHap`, HAP output listing, device temp directory creation, `hdc file send`, `bm install -p`, temp directory cleanup, force-stop, and ability start. `JAVA_HOME\bin` is put first in `PATH` so signing uses the DevEco JDK. `--build-timeout` controls local build and install timeouts. `--render-wait` waits after app launch before taking the screenshot.
 
-`ArkTs/build_and_run.bat` is the default Windows script. Fill `DEVECO_SDK_HOME` and `JAVA_HOME` at the top after the real ArkTS project is checked in. It cleans first, builds the signed HAP, pushes it to a device-local temp directory, installs with `bm install -p`, cleans the temp directory, then force-stops and launches the target ability.
+`ArkTs/build_and_run.bat` mirrors the same flow and can be kept as a manual debugging helper, but automation no longer depends on it.
 
 ## Outputs
 

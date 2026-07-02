@@ -19,9 +19,12 @@ class AutomationConfig:
     poll_interval: float = 2
     scroll_limit: int = 12
     render_wait: float = 5
-    build_wait: float = 60
     build_timeout: float = 300
-    build_pause_grace: float = 5
+    deveco_sdk_home: Path | None = None
+    java_home: Path | None = None
+    bundle_name: str = "yyx.test.test"
+    ability_name: str = "EntryAbility"
+    module_name: str = "entry"
     screenshot_min_bytes: int = 1000
     screenshot_retries: int = 3
     screenshot_write_wait: float = 1
@@ -44,14 +47,15 @@ class AutomationConfig:
 
     @property
     def rawfile_target(self) -> Path:
-        return self.arkts_dir / "entry" / "src" / "main" / "resources" / "rawfile" / "sample.jsonl"
+        return self.arkts_dir / self.module_name / "src" / "main" / "resources" / "rawfile" / "sample.jsonl"
 
     @property
-    def build_script(self) -> Path:
-        bat = self.arkts_dir / "build_and_run.bat"
-        if bat.exists():
-            return bat
-        return self.arkts_dir / "build_and_run"
+    def hap_output_dir(self) -> Path:
+        return self.arkts_dir / self.module_name / "build" / "default" / "outputs" / "default"
+
+    @property
+    def signed_hap_path(self) -> Path:
+        return self.hap_output_dir / f"{self.module_name}-default-signed.hap"
 
     @property
     def work_dir(self) -> Path:

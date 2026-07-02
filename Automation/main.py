@@ -20,10 +20,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--post-query-wait", type=float, default=30)
     parser.add_argument("--query-attempt-timeout", type=float, default=90)
     parser.add_argument("--query-max-attempts", type=int, default=3)
-    parser.add_argument("--build-wait", type=float, default=60)
     parser.add_argument("--build-timeout", type=float, default=300)
-    parser.add_argument("--build-pause-grace", type=float, default=5)
     parser.add_argument("--render-wait", type=float, default=5)
+    parser.add_argument("--deveco-sdk-home", type=Path)
+    parser.add_argument("--java-home", type=Path)
+    parser.add_argument("--bundle-name", default="yyx.test.test")
+    parser.add_argument("--ability-name", default="EntryAbility")
+    parser.add_argument("--module-name", default="entry")
     parser.add_argument("--screenshot-min-bytes", type=int, default=1000)
     parser.add_argument("--screenshot-retries", type=int, default=3)
     parser.add_argument("--screenshot-write-wait", type=float, default=1)
@@ -51,10 +54,13 @@ def make_config(args: argparse.Namespace) -> AutomationConfig:
         post_query_wait=args.post_query_wait,
         query_attempt_timeout=args.query_attempt_timeout,
         query_max_attempts=args.query_max_attempts,
-        build_wait=args.build_wait,
         build_timeout=args.build_timeout,
-        build_pause_grace=args.build_pause_grace,
         render_wait=args.render_wait,
+        deveco_sdk_home=args.deveco_sdk_home,
+        java_home=args.java_home,
+        bundle_name=args.bundle_name,
+        ability_name=args.ability_name,
+        module_name=args.module_name,
         screenshot_min_bytes=args.screenshot_min_bytes,
         screenshot_retries=args.screenshot_retries,
         screenshot_write_wait=args.screenshot_write_wait,
