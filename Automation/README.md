@@ -1,57 +1,57 @@
-# Xiaoyi DSL Automation
+# 小艺 DSL 自动化
 
-Python-first automation for:
+本目录包含 Python 主流程，用于执行：
 
-`query -> DSL extraction -> ArkTS rawfile copy -> build/install/run -> snapshot`
+`query -> DSL 提取 -> ArkTS rawfile 复制 -> 构建安装启动 -> 截图`
 
-The design stays efficient, simple, modular, and decoupled. Shell scripts under `scripts/` are only historical logic references.
+当前实现以 Python 为主，保持流程简单、模块化、可维护。`scripts/` 目录下的 shell 脚本主要作为历史逻辑参考。
 
-## Layout
+## 目录结构
 
-- `main.py`: command line entry.
-- `automation/hdc.py`: minimal HDC boundary.
-- `automation/ui_tree.py`: UI tree parsing and locator scoring.
-- `automation/xiaoyi.py`: wait ready, send query, wait reply, extract DSL.
-- `automation/dsl.py`: DSL keyword search and JSONL persistence.
-- `automation/arkts.py`: copy DSL to ArkTS rawfile, build/install/launch ArkTS, screenshot.
-- `automation/pipeline.py`: single and batch orchestration.
+- `main.py`：命令行入口。
+- `automation/hdc.py`：HDC 命令封装。
+- `automation/ui_tree.py`：UI 树解析、控件定位和打分。
+- `automation/xiaoyi.py`：等待小艺就绪、发送 query、等待回复、提取 DSL。
+- `automation/dsl.py`：DSL 关键词搜索、JSON 修复和保存。
+- `automation/arkts.py`：复制 DSL 到 ArkTS rawfile，构建、安装、启动 ArkTS，并截图。
+- `automation/pipeline.py`：单条和批量流程编排。
 
-## Commands
+## 命令
 
-Run one query directly:
+直接运行一条 query：
 
 ```powershell
-python Automation\main.py one --qid q_manual --query "your query"
+python Automation\main.py one --qid q_manual --query "你的 query"
 ```
 
-Run one query from `queries.jsonl`:
+从 `queries.jsonl` 按 id 运行一条 query：
 
 ```powershell
 python Automation\main.py one-from-file --qid q1
 ```
 
-Batch mode:
+批量模式：
 
 ```powershell
 python Automation\main.py batch
 ```
 
-Batch mode first sends all queries and extracts all DSL files. Only after all DSL files are collected does it render each case and save screenshots.
+批量模式会先发送所有 query 并收集 DSL 文件；全部 DSL 收集完成后，再逐条渲染并保存截图。
 
-Configure DevEco SDK and JDK paths through arguments or environment variables:
+DevEco SDK 和 JDK 路径可以通过 `Automation/automation/config.py` 顶部的本机配置区维护，也可以通过参数或环境变量覆盖：
 
 ```powershell
 python Automation\main.py --deveco-sdk-home "D:\DevEco\Sdk" --java-home "D:\DevEco\jbr" --render-wait 10 batch
 ```
 
-The Python runner performs the ArkTS flow directly: `hvigor clean`, `hvigor assembleHap`, HAP output listing, device temp directory creation, `hdc file send`, `bm install -p`, temp directory cleanup, force-stop, and ability start. `JAVA_HOME\bin` is put first in `PATH` so signing uses the DevEco JDK. `--build-timeout` controls local build and install timeouts. `--render-wait` waits after app launch before taking the screenshot.
+Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、`bm install -p`、清理临时目录、force-stop、启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
 
-`ArkTs/build_and_run.bat` mirrors the same flow and can be kept as a manual debugging helper, but automation no longer depends on it.
+`ArkTs/build_and_run.bat` 保留为人工调试辅助脚本，自动化流程不再依赖它。
 
-## Outputs
+## 输出
 
-- DSL files: `dsl/{qid}.jsonl`
-- ArkTS rawfile target: `ArkTs/entry/src/main/resources/rawfile/sample.jsonl`
+- DSL 文件：`dsl/{qid}.jsonl`
+- ArkTS rawfile 目标：`ArkTs/entry/src/main/resources/rawfile/sample.jsonl`
 
-`sample` must remain JSONL. The runner validates every non-empty line before copying DSL into the ArkTS rawfile directory.
-- Screenshots: `output/{qid}.jpeg`
+`sample` 当前按 JSON 数组文件校验并复制到 ArkTS rawfile 目录。
+- 截图文件：`output/{qid}.jpeg`

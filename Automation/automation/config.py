@@ -4,6 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# Local test-machine configuration.
+# Update this one path if DevEco Studio is installed somewhere else.
+LOCAL_DEVECO_STUDIO_HOME = Path("D:/DevEco Studio")
+LOCAL_DEVECO_SDK_HOME = LOCAL_DEVECO_STUDIO_HOME / "sdk"
+LOCAL_JAVA_HOME = LOCAL_DEVECO_STUDIO_HOME / "jbr"
+
+
 @dataclass(frozen=True)
 class AutomationConfig:
     project_root: Path
@@ -20,8 +27,8 @@ class AutomationConfig:
     scroll_limit: int = 12
     render_wait: float = 5
     build_timeout: float = 300
-    deveco_sdk_home: Path | None = None
-    java_home: Path | None = None
+    deveco_sdk_home: Path | None = LOCAL_DEVECO_SDK_HOME
+    java_home: Path | None = LOCAL_JAVA_HOME
     bundle_name: str = "yyx.test.test"
     ability_name: str = "EntryAbility"
     module_name: str = "entry"
