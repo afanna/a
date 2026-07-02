@@ -46,6 +46,8 @@ python Automation\main.py --build-wait 60 --render-wait 5 batch
 
 `--build-wait` is the minimum time to let build/install/start/render script work run before automation sends Enter for the trailing pause. If the script is still busy, it can keep running until `--build-timeout`. `--render-wait` waits after the script exits before taking the screenshot.
 
+`ArkTs/build_and_run.bat` is the default Windows script. Fill `DEVECO_SDK_HOME` and `JAVA_HOME` at the top after the real ArkTS project is checked in. It cleans first, builds the signed HAP, pushes it to a device-local temp directory, installs with `bm install -p`, cleans the temp directory, then force-stops and launches the target ability.
+
 ## Outputs
 
 - DSL files: `dsl/{qid}.jsonl`
