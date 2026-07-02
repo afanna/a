@@ -19,7 +19,9 @@ class AutomationConfig:
     poll_interval: float = 2
     scroll_limit: int = 12
     render_wait: float = 5
+    build_wait: float = 60
     build_timeout: float = 300
+    build_pause_grace: float = 5
     screenshot_min_bytes: int = 1000
     screenshot_retries: int = 3
     screenshot_write_wait: float = 1

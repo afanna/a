@@ -38,6 +38,14 @@ python Automation\main.py batch
 
 Batch mode first sends all queries and extracts all DSL files. Only after all DSL files are collected does it render each case and save screenshots.
 
+If `ArkTs/build_and_run` runs render work and then ends with `pause`, keep the default waits or tune them:
+
+```powershell
+python Automation\main.py --build-wait 60 --render-wait 5 batch
+```
+
+`--build-wait` is the minimum time to let build/install/start/render script work run before automation sends Enter for the trailing pause. If the script is still busy, it can keep running until `--build-timeout`. `--render-wait` waits after the script exits before taking the screenshot.
+
 ## Outputs
 
 - DSL files: `dsl/{qid}.jsonl`

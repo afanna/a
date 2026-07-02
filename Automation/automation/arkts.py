@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 import time
 import json
 import os
+from subprocess import TimeoutExpired
 from pathlib import Path
 
 from .config import AutomationConfig
@@ -51,21 +53,61 @@ class ArkTsRunner:
             else [str(script)]
         )
 
-        completed = subprocess.run(
-            command,
-            cwd=str(self.config.arkts_dir),
-            check=False,
-            text=True,
-            input="\n",
-            capture_output=True,
-            timeout=self.config.build_timeout,
-        )
-
-        if completed.returncode != 0:
-            raise RuntimeError(
-                f"ArkTS build/run failed with exit code {completed.returncode}: {script}\n"
-                f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
+        total_timeout = max(self.config.build_timeout, self.config.build_wait)
+        with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as stdout_file, tempfile.TemporaryFile(
+            "w+", encoding="utf-8", errors="replace"
+        ) as stderr_file:
+            process = subprocess.Popen(
+                command,
+                cwd=str(self.config.arkts_dir),
+                text=True,
+                stdin=subprocess.PIPE,
+                stdout=stdout_file,
+                stderr=stderr_file,
             )
+
+            try:
+                process.wait(timeout=self.config.build_wait)
+            except TimeoutExpired as exc:
+                write_stdin_line(process)
+                remaining_timeout = max(self.config.build_pause_grace, total_timeout - self.config.build_wait)
+                try:
+                    process.wait(timeout=remaining_timeout)
+                except TimeoutExpired:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=self.config.build_pause_grace)
+                    except TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    stdout, stderr = read_process_output(stdout_file, stderr_file)
+                    raise RuntimeError(
+                        f"ArkTS build/run timed out after {total_timeout} seconds: {script}\n"
+                        f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                    ) from exc
+
+            stdout, stderr = read_process_output(stdout_file, stderr_file)
+            if process.returncode != 0:
+                raise RuntimeError(
+                    f"ArkTS build/run failed with exit code {process.returncode}: {script}\n"
+                    f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+                )
+
+
+def write_stdin_line(process: subprocess.Popen) -> None:
+    if process.stdin is None or process.stdin.closed:
+        return
+    try:
+        process.stdin.write("\n")
+        process.stdin.flush()
+    except OSError:
+        return
+
+
+def read_process_output(stdout_file, stderr_file) -> tuple[str, str]:
+    stdout_file.seek(0)
+    stderr_file.seek(0)
+    return stdout_file.read(), stderr_file.read()
 
 
 def validate_dsl_array_file(path: Path) -> None:
