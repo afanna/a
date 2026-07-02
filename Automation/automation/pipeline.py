@@ -20,7 +20,7 @@ class RenderResult:
 class AutomationPipeline:
     def __init__(self, config: AutomationConfig):
         self.config = config
-        self.hdc = HdcClient(config.hdc)
+        self.hdc = HdcClient(config.hdc, sn=config.sn)
         self.xiaoyi = XiaoyiClient(config, self.hdc)
         self.arkts = ArkTsRunner(config, self.hdc)
 

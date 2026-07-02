@@ -38,6 +38,24 @@ python Automation\main.py batch
 
 批量模式会先发送所有 query 并收集 DSL 文件；全部 DSL 收集完成后，再逐条渲染并保存截图。
 
+指定单台设备运行：
+
+```powershell
+python Automation\main.py batch --sn "你的设备SN"
+```
+
+多设备并行模式会自动发现所有 HDC 设备，每台设备都会完整执行一遍 `queries.jsonl`：
+
+```powershell
+python Automation\main.py parallel --devices auto
+```
+
+也可以手动指定设备列表：
+
+```powershell
+python Automation\main.py parallel --devices "SN1,SN2" --max-workers 2
+```
+
 DevEco SDK 和 JDK 路径可以通过 `Automation/automation/config.py` 顶部的本机配置区维护，也可以通过参数或环境变量覆盖：
 
 ```powershell
@@ -61,3 +79,9 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 
 `sample` 当前按 JSON 数组文件校验并复制到 ArkTS rawfile 目录。
 - 截图文件：`output/{qid}.jpeg`
+
+指定 `--sn` 或使用 `parallel` 时，输出会按设备隔离：
+
+- DSL 文件：`dsl/{safe_sn}/{safe_sn}_{qid}.jsonl`
+- ArkTS 工作副本：`Automation/.work/devices/{safe_sn}/ArkTs`
+- 截图文件：`output/{safe_sn}/{safe_sn}_{qid}.jpeg`

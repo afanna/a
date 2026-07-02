@@ -21,14 +21,18 @@ class CommandResult:
 
 
 class HdcClient:
-    def __init__(self, executable: str = "hdc", default_timeout: float = 30):
+    def __init__(self, executable: str = "hdc", default_timeout: float = 30, sn: str | None = None):
         self.executable = executable
         self.default_timeout = default_timeout
+        self.sn = sn
         self.env = os.environ.copy()
         self.env["MSYS_NO_PATHCONV"] = "1"
 
     def run(self, args: Sequence[object], *, timeout: float | None = None, check: bool = True) -> CommandResult:
-        command = [self.executable, *[str(arg) for arg in args]]
+        command = [self.executable]
+        if self.sn:
+            command.extend(["-t", self.sn])
+        command.extend(str(arg) for arg in args)
         completed = subprocess.run(
             command,
             capture_output=True,
@@ -87,6 +91,27 @@ class HdcClient:
             local_path.unlink(missing_ok=True)
 
         raise HdcError(f"Failed to capture a valid screenshot after {retries} attempts") from last_error
+
+    @classmethod
+    def list_targets(cls, executable: str = "hdc", timeout: float = 30) -> list[str]:
+        client = cls(executable=executable, default_timeout=timeout)
+        result = client.run(["list", "targets"], timeout=timeout)
+        return parse_targets(result.stdout)
+
+
+def parse_targets(output: str) -> list[str]:
+    targets: list[str] = []
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lower = line.lower()
+        if "empty" in lower or "list of" in lower or lower.startswith("["):
+            continue
+        sn = line.split()[0]
+        if sn and sn not in targets:
+            targets.append(sn)
+    return targets
 
 
 def format_command_failure(result: CommandResult) -> str:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 
 # Local test-machine configuration.
@@ -15,6 +16,7 @@ LOCAL_JAVA_HOME = LOCAL_DEVECO_STUDIO_HOME / "jbr"
 class AutomationConfig:
     project_root: Path
     hdc: str = "hdc"
+    sn: str | None = None
     remote_dump: str = "/data/local/tmp/current_ui_tree.json"
     remote_snapshot: str = "/data/local/tmp/snapshot_display.jpeg"
     ready_timeout: float = 60
@@ -42,15 +44,25 @@ class AutomationConfig:
 
     @property
     def dsl_dir(self) -> Path:
+        if self.safe_sn:
+            return self.project_root / "dsl" / self.safe_sn
         return self.project_root / "dsl"
 
     @property
     def output_dir(self) -> Path:
+        if self.safe_sn:
+            return self.project_root / "output" / self.safe_sn
         return self.project_root / "output"
 
     @property
-    def arkts_dir(self) -> Path:
+    def source_arkts_dir(self) -> Path:
         return self.project_root / "ArkTs"
+
+    @property
+    def arkts_dir(self) -> Path:
+        if self.safe_sn:
+            return self.work_dir / "ArkTs"
+        return self.source_arkts_dir
 
     @property
     def rawfile_target(self) -> Path:
@@ -66,4 +78,30 @@ class AutomationConfig:
 
     @property
     def work_dir(self) -> Path:
-        return self.project_root / "Automation" / ".work"
+        base = self.project_root / "Automation" / ".work"
+        if self.safe_sn:
+            return base / "devices" / self.safe_sn
+        return base
+
+    @property
+    def safe_sn(self) -> str | None:
+        if not self.sn:
+            return None
+        return safe_path_name(self.sn)
+
+    def artifact_stem(self, qid: str) -> str:
+        safe_qid = safe_path_name(qid)
+        if self.safe_sn:
+            return f"{self.safe_sn}_{safe_qid}"
+        return safe_qid
+
+    def dsl_path_for(self, qid: str) -> Path:
+        return self.dsl_dir / f"{self.artifact_stem(qid)}.jsonl"
+
+    def screenshot_path_for(self, qid: str) -> Path:
+        return self.output_dir / f"{self.artifact_stem(qid)}.jpeg"
+
+
+def safe_path_name(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")
+    return cleaned or "item"

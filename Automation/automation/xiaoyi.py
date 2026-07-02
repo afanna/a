@@ -60,7 +60,7 @@ class XiaoyiClient:
                 self._scroll_down(check=False)
                 extraction = self._wait_and_extract(qid, deadline)
                 self.last_dsl_fingerprint = dsl_fingerprint(extraction)
-                dsl_path = self.config.dsl_dir / f"{qid}.jsonl"
+                dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
             except TimeoutError as exc:

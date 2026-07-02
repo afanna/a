@@ -19,10 +19,11 @@ class ArkTsRunner:
         self.hdc = hdc
 
     def render(self, qid: str, dsl_path: Path) -> Path:
+        self.ensure_arkts_workspace()
         self.copy_dsl_to_rawfile(dsl_path)
         self.build_and_run()
         time.sleep(self.config.render_wait)
-        output = self.config.output_dir / f"{qid}.jpeg"
+        output = self.config.screenshot_path_for(qid)
         self.hdc.snapshot_display(
             output,
             self.config.remote_snapshot,
@@ -42,6 +43,21 @@ class ArkTsRunner:
         shutil.copyfile(dsl_path, self.config.rawfile_target)
         return self.config.rawfile_target
 
+    def ensure_arkts_workspace(self) -> None:
+        if not self.config.safe_sn:
+            return
+        source = self.config.source_arkts_dir
+        target = self.config.arkts_dir
+        if not source.exists():
+            raise FileNotFoundError(f"ArkTS source project does not exist: {source}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(
+            source,
+            target,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("build", ".hvigor", ".idea", ".gradle", "node_modules"),
+        )
+
     def build_and_run(self) -> None:
         env = self.build_env()
         self.run_hvigor("clean", env)
@@ -51,7 +67,7 @@ class ArkTsRunner:
         if not self.config.signed_hap_path.exists():
             raise FileNotFoundError(f"Signed HAP was not generated: {self.config.signed_hap_path}")
 
-        remote_dir = f"/data/local/tmp/tmp_{datetime.now().strftime('%H%M%S')}"
+        remote_dir = f"/data/local/tmp/tmp_{self.remote_temp_suffix()}"
         remote_hap = f"{remote_dir}/{self.config.signed_hap_path.name}"
         try:
             self.hdc.shell("mkdir", "-p", remote_dir, timeout=30)
@@ -72,6 +88,10 @@ class ArkTsRunner:
             self.config.module_name,
             timeout=30,
         )
+
+    def remote_temp_suffix(self) -> str:
+        safe_sn = self.config.safe_sn or "default"
+        return f"{safe_sn}_{os.getpid()}_{datetime.now().strftime('%H%M%S%f')}"
 
     def build_env(self) -> dict[str, str]:
         env = os.environ.copy()
