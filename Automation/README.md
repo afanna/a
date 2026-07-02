@@ -4,7 +4,7 @@
 
 `query -> DSL 提取 -> ArkTS rawfile 复制 -> 构建安装启动 -> 截图`
 
-当前实现以 Python 为主，保持流程简单、模块化、可维护。`scripts/` 目录下的 shell 脚本主要作为历史逻辑参考。
+当前实现以 Python 为主，保持流程简单、模块化、可维护。
 
 ## 目录结构
 
@@ -41,12 +41,18 @@ python Automation\main.py batch
 DevEco SDK 和 JDK 路径可以通过 `Automation/automation/config.py` 顶部的本机配置区维护，也可以通过参数或环境变量覆盖：
 
 ```powershell
-python Automation\main.py --deveco-sdk-home "D:\DevEco\Sdk" --java-home "D:\DevEco\jbr" --render-wait 10 batch
+python Automation\main.py --deveco-sdk-home "D:\DevEco Studio\sdk" --java-home "D:\DevEco Studio\jbr" --render-wait 10 batch
 ```
 
-Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、`bm install -p`、清理临时目录、force-stop、启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
+也可以把公共参数放在子命令后面：
 
-`ArkTs/build_and_run.bat` 保留为人工调试辅助脚本，自动化流程不再依赖它。
+```powershell
+python Automation\main.py batch --deveco-sdk-home "D:\DevEco Studio\sdk" --java-home "D:\DevEco Studio\jbr" --render-wait 10
+```
+
+注意：`--deveco-sdk-home` 和 `--java-home` 只是运行参数，不是单独的“设置环境”命令；每次运行仍然需要带 `one`、`one-from-file` 或 `batch` 子命令。
+
+Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、`bm install -p`、清理临时目录、force-stop、启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
 
 ## 输出
 

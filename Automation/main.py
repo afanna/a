@@ -11,36 +11,44 @@ from automation.queries import QueryCase, load_queries
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def add_common_arguments(parser: argparse.ArgumentParser, *, with_defaults: bool) -> None:
+    default = None if with_defaults else argparse.SUPPRESS
+    parser.add_argument("--project-root", type=Path, default=DEFAULT_PROJECT_ROOT if with_defaults else default)
+    parser.add_argument("--hdc", default="hdc" if with_defaults else default)
+    parser.add_argument("--extract-delay", type=float, default=30 if with_defaults else default)
+    parser.add_argument("--reply-timeout", type=float, default=120 if with_defaults else default)
+    parser.add_argument("--post-query-wait", type=float, default=30 if with_defaults else default)
+    parser.add_argument("--query-attempt-timeout", type=float, default=90 if with_defaults else default)
+    parser.add_argument("--query-max-attempts", type=int, default=3 if with_defaults else default)
+    parser.add_argument("--build-timeout", type=float, default=300 if with_defaults else default)
+    parser.add_argument("--render-wait", type=float, default=5 if with_defaults else default)
+    parser.add_argument("--deveco-sdk-home", type=Path, default=default)
+    parser.add_argument("--java-home", type=Path, default=default)
+    parser.add_argument("--bundle-name", default="yyx.test.test" if with_defaults else default)
+    parser.add_argument("--ability-name", default="EntryAbility" if with_defaults else default)
+    parser.add_argument("--module-name", default="entry" if with_defaults else default)
+    parser.add_argument("--screenshot-min-bytes", type=int, default=1000 if with_defaults else default)
+    parser.add_argument("--screenshot-retries", type=int, default=3 if with_defaults else default)
+    parser.add_argument("--screenshot-write-wait", type=float, default=1 if with_defaults else default)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Xiaoyi DSL render automation")
-    parser.add_argument("--project-root", type=Path, default=DEFAULT_PROJECT_ROOT)
-    parser.add_argument("--hdc", default="hdc")
-    parser.add_argument("--extract-delay", type=float, default=30)
-    parser.add_argument("--reply-timeout", type=float, default=120)
-    parser.add_argument("--post-query-wait", type=float, default=30)
-    parser.add_argument("--query-attempt-timeout", type=float, default=90)
-    parser.add_argument("--query-max-attempts", type=int, default=3)
-    parser.add_argument("--build-timeout", type=float, default=300)
-    parser.add_argument("--render-wait", type=float, default=5)
-    parser.add_argument("--deveco-sdk-home", type=Path)
-    parser.add_argument("--java-home", type=Path)
-    parser.add_argument("--bundle-name", default="yyx.test.test")
-    parser.add_argument("--ability-name", default="EntryAbility")
-    parser.add_argument("--module-name", default="entry")
-    parser.add_argument("--screenshot-min-bytes", type=int, default=1000)
-    parser.add_argument("--screenshot-retries", type=int, default=3)
-    parser.add_argument("--screenshot-write-wait", type=float, default=1)
+    add_common_arguments(parser, with_defaults=True)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     one = subparsers.add_parser("one", help="Send one query, extract DSL, render, and screenshot")
+    add_common_arguments(one, with_defaults=False)
     one.add_argument("--qid", default="manual")
     one.add_argument("--query", required=True)
 
     from_file = subparsers.add_parser("one-from-file", help="Run one query from queries.jsonl by id")
+    add_common_arguments(from_file, with_defaults=False)
     from_file.add_argument("--qid", required=True)
     from_file.add_argument("--queries", type=Path)
 
     batch = subparsers.add_parser("batch", help="Collect all DSLs first, then render all screenshots")
+    add_common_arguments(batch, with_defaults=False)
     batch.add_argument("--queries", type=Path)
     return parser
 
