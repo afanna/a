@@ -1,16 +1,14 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 import re
-
 
 # Local test-machine configuration.
 # Update this one path if DevEco Studio is installed somewhere else.
 LOCAL_DEVECO_STUDIO_HOME = Path("D:/DevEco Studio")
 LOCAL_DEVECO_SDK_HOME = LOCAL_DEVECO_STUDIO_HOME / "sdk"
 LOCAL_JAVA_HOME = LOCAL_DEVECO_STUDIO_HOME / "jbr"
-
 
 @dataclass(frozen=True)
 class AutomationConfig:
@@ -100,7 +98,16 @@ class AutomationConfig:
 
     def screenshot_path_for(self, qid: str) -> Path:
         return self.output_dir / f"{self.artifact_stem(qid)}.jpeg"
-
+    
+    @property
+    def scores_jsonl_path(self) -> Path:
+        """审美打分结果jsonl路径"""
+        return self.output_dir / "scores.jsonl"
+    
+    @property
+    def report_html_path(self) -> Path:
+        """审美可视化报告路径"""
+        return self.output_dir / "report.html"
 
 def safe_path_name(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")

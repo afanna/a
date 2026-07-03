@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 
@@ -14,3 +14,9 @@ __pycache__/
 *.log
 *.rar
 *.zip
+
+# Visual aesthetic judge config
+visual_aesthetics/.env
+*.pyc
+__pycache__/
+
