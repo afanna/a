@@ -7,7 +7,7 @@ from pathlib import Path
 from .arkts import ArkTsRunner
 from .card_crop import CardCropper, load_card_crop_config
 from .config import AutomationConfig
-from .hdc import HdcClient
+from .hdc import HdcClient, HdcError
 from .logger import get_logger
 from .queries import QueryCase, load_queries
 from .xiaoyi import QueryResult, XiaoyiClient
@@ -108,7 +108,7 @@ class AutomationPipeline:
         for case in cases:
             try:
                 query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
-            except TimeoutError as exc:
+            except (TimeoutError, HdcError) as exc:
                 failed += 1
                 self._log.error("DSL failed: qid=%s error=%s", case.qid, exc)
                 continue

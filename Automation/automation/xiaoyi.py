@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .config import AutomationConfig
 from .dsl import DSL_KEYWORDS, DslExtraction, DslExtractor
-from .hdc import HdcClient
+from .hdc import HdcClient, HdcError
 from .logger import get_logger
 from .ui_tree import UiTree
 
@@ -30,7 +30,10 @@ class XiaoyiClient:
 
     def dump_tree(self) -> UiTree:
         self.hdc.dump_layout(self.dump_path, self.config.remote_dump)
-        return UiTree.from_file(self.dump_path)
+        try:
+            return UiTree.from_file(self.dump_path)
+        except (OSError, json.JSONDecodeError) as exc:
+            raise HdcError(f"Failed to read dumped UI tree: {self.dump_path}") from exc
 
     def wait_ready(self) -> None:
         deadline = time.monotonic() + self.config.ready_timeout
@@ -69,8 +72,9 @@ class XiaoyiClient:
                 self.extractor.save_jsonl(extraction, dsl_path)
                 self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
-            except TimeoutError as exc:
+            except (TimeoutError, HdcError) as exc:
                 last_error = exc
+                self._log.error("[%s] stage=DSL_ATTEMPT_FAILED attempt=%d error=%s", qid, attempt, exc)
                 if attempt < self.config.query_max_attempts:
                     continue
         raise TimeoutError(f"DSL not found for query {qid} after {self.config.query_max_attempts} attempts") from last_error

@@ -60,11 +60,35 @@ class HdcClient:
     def shell(self, *parts: object, timeout: float | None = None, check: bool = True) -> CommandResult:
         return self.run(["shell", *parts], timeout=timeout, check=check)
 
-    def dump_layout(self, local_path: Path, remote_path: str) -> Path:
+    def dump_layout(self, local_path: Path, remote_path: str, *, retries: int = 3, retry_wait: float = 1) -> Path:
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        self.shell("uitest", "dumpLayout", "-p", remote_path, timeout=15)
-        self.run(["file", "recv", remote_path, str(local_path)], timeout=15)
-        return local_path
+        last_error: Exception | None = None
+
+        for _ in range(retries):
+            local_path.unlink(missing_ok=True)
+
+            dump = self.shell("uitest", "dumpLayout", "-p", remote_path, timeout=15, check=False)
+            if dump.returncode != 0:
+                last_error = HdcError(format_command_failure(dump))
+                self._log.warning("dumpLayout failed, retrying: %s", last_error)
+                time.sleep(retry_wait)
+                continue
+
+            recv = self.run(["file", "recv", remote_path, str(local_path)], timeout=15, check=False)
+            if recv.returncode != 0:
+                last_error = HdcError(format_command_failure(recv))
+                self._log.warning("dumpLayout recv failed, retrying: %s", last_error)
+                time.sleep(retry_wait)
+                continue
+
+            if local_path.exists() and local_path.stat().st_size > 0:
+                return local_path
+
+            last_error = HdcError(f"Dump layout file is empty: {local_path}")
+            self._log.warning("dumpLayout produced empty file, retrying: %s", local_path)
+            time.sleep(retry_wait)
+
+        raise HdcError(f"Failed to dump UI layout after {retries} attempts") from last_error
 
     def ui_input(self, action: str, *args: object, check: bool = True) -> CommandResult:
         return self.shell("uitest", "uiInput", action, *args, timeout=10, check=check)
