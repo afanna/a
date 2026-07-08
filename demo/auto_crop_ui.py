@@ -12,7 +12,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 # 配置，和你现有API参数一致
 API_BASE_URL = "https://ark.cn-beijing.volces.com/api/plan/v3"
-API_KEY = "ARK_API_KEY_REMOVED"
+API_KEY = ""
 MODEL_NAME = "doubao-seed-2-0-lite"
 
 def image_to_base64(img_path: Path) -> str:
