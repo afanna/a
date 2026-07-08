@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import subprocess
 import time
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -21,10 +22,17 @@ class CommandResult:
 
 
 class HdcClient:
-    def __init__(self, executable: str = "hdc", default_timeout: float = 30, sn: str | None = None):
+    def __init__(
+        self,
+        executable: str = "hdc",
+        default_timeout: float = 30,
+        sn: str | None = None,
+        logger: logging.Logger | None = None,
+    ):
         self.executable = executable
         self.default_timeout = default_timeout
         self.sn = sn
+        self._log = logger or logging.getLogger("hdc")
         self.env = os.environ.copy()
         self.env["MSYS_NO_PATHCONV"] = "1"
 
@@ -33,14 +41,17 @@ class HdcClient:
         if self.sn:
             command.extend(["-t", self.sn])
         command.extend(str(arg) for arg in args)
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            check=False,
-            env=self.env,
-            text=True,
-            timeout=self.default_timeout if timeout is None else timeout,
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                env=self.env,
+                text=True,
+                timeout=self.default_timeout if timeout is None else timeout,
+            )
+        except FileNotFoundError as exc:
+            raise HdcError(f"HDC executable not found: {self.executable}") from exc
         result = CommandResult(tuple(command), completed.returncode, completed.stdout or "", completed.stderr or "")
         if check and result.returncode != 0:
             raise HdcError(format_command_failure(result))
@@ -87,6 +98,8 @@ class HdcClient:
                 continue
             if local_path.exists() and local_path.stat().st_size > min_bytes:
                 return local_path
+            size = local_path.stat().st_size if local_path.exists() else 0
+            self._log.warning("snapshot_display file too small: %d bytes", size)
             last_error = HdcError(f"Screenshot file is too small: {local_path}")
             local_path.unlink(missing_ok=True)
 

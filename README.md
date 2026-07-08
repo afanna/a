@@ -10,6 +10,7 @@
 | 🧩 **零侵入兼容现有流程** | 完全不修改原有ArkTS开发流程，不用改代码、不用换构建工具，现有项目直接接入即可用 |
 | 🔍 **结果可追溯可对比** | 每个Query的DSL、截图、打分结果、错误日志按设备隔离归档，方便排查问题和版本效果对比 |
 | ⚡ **智能容错降级** | 单台设备/单条用例失败不影响整体流程，API调用失败自动重试，支持失败跳过/终止两种模式 |
+| 📋 **全链路日志追踪** | 每个模块独立埋点，按设备SN隔离日志文件，控制台实时进度+文件完整追溯，DEBUG模式记录每次HDC命令细节 |
 
 ## 🚀 快速开始
 ### 1. 环境准备
@@ -35,9 +36,10 @@ LOCAL_DEVECO_STUDIO_HOME = Path("D:/DevEco Studio")
 ```
 
 ### 4. 快速运行
-#### 👉 单设备批量跑所有用例+自动打分
+#### 👉 单设备批量跑所有用例+自动裁切+自动打分
 ```powershell
 python Automation\main.py batch `
+    --enable-card-crop `
     --enable-aesthetics `
     --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" `
     --aesthetics-api-key "你的API密钥"
@@ -47,9 +49,18 @@ python Automation\main.py batch `
 ```powershell
 python Automation\main.py parallel `
     --devices auto `
+    --enable-card-crop `
     --enable-aesthetics `
     --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" `
     --aesthetics-api-key "你的API密钥"
+```
+
+#### 👉 单独裁切已有截图里的卡片
+```powershell
+python Automation\main.py crop-card `
+    --input ./output `
+    --output ./output/cards `
+    --card-crop-debug
 ```
 
 #### 👉 单独给已有截图批量打分生成报告
@@ -62,24 +73,19 @@ python Automation\main.py aesthetics `
 ```
 
 ## 📖 命令说明
-### 公共参数（所有命令通用）
+### 日常公共参数
+默认命令行只保留高频参数；超时、构建路径、截图重试、模型温度等高级项统一放到 `Automation/config/automation.json` 里维护。
+
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--project-root` | 项目根目录路径 | 自动识别当前目录 |
+| `--config` | 运行配置JSON路径 | `Automation/config/automation.json` |
 | `--sn` | 指定运行的设备SN，单台设备时不用传 | 不指定默认用唯一在线设备 |
-| `--deveco-sdk-home` | DevEco SDK路径 | `D:/DevEco Studio/sdk` |
-| `--java-home` | DevEco JDK路径 | `D:/DevEco Studio/jbr` |
-| `--render-wait` | 应用启动后等待截图的时间(秒) | 5 |
-| `--build-timeout` | 构建安装的超时时间(秒) | 300 |
-| `--enable-aesthetics` | 开启UI审美打分功能 | 关闭 |
-| `--aesthetics-base-url` | 打分模型API地址 | 无 |
-| `--aesthetics-api-key` | 打分模型API密钥 | 无 |
-| `--aesthetics-model` | 打分模型名称 | `doubao-seed-2-0-lite` |
-| `--aesthetics-max-workers` | 打分最大并发数 | 2 |
-| `--aesthetics-fail-fast` | 打分失败是否中断流程 | 关闭 |
-| `--aesthetics-enable-cache` | 开启本地缓存，相同截图不用重复调用API，节省成本和时间 | 默认关闭 |
-| `--aesthetics-timeout` | 单张截图API调用超时时间(秒) | 360 |
-| `--aesthetics-max-retries` | API调用失败重试次数 | 3 |
+| `--enable-card-crop` | 截图后自动裁切卡片图，输出 `{qid}_card.png` | 关闭 |
+| `--card-crop-debug` | 输出红框标注调试图到 `_debug/` | 关闭 |
+| `--enable-aesthetics` | 开启UI审美打分；自动化流程中会使用裁切后的卡片图评分 | 关闭 |
+| `--aesthetics-base-url` | 打分模型API地址 | 读取配置或环境变量 |
+| `--aesthetics-api-key` | 打分模型API密钥 | 读取配置或环境变量 |
+| `--debug` | 开启DEBUG日志 | 关闭 |
 
 ---
 
@@ -157,6 +163,28 @@ python Automation\main.py aesthetics `
 | `--skip-report` | 跳过生成HTML报告，只输出JSON结果 | 否，默认生成报告 |
 | `--sn` | 设备SN，用于结果关联 | 否 |
 
+---
+
+### 6. `crop-card` - 独立裁切已有截图
+**用途**：不用跑完整自动化，直接从已有整屏截图中裁切卡片区域
+```powershell
+# 裁切单张截图
+python Automation\main.py crop-card `
+    --input ./output/q1.jpeg `
+    --output ./output/cards
+
+# 裁切目录内所有png/jpg/jpeg图片，并输出debug标注图
+python Automation\main.py crop-card `
+    --input ./output `
+    --output ./output/cards `
+    --card-crop-debug
+```
+| 参数 | 说明 | 必填 |
+|------|------|------|
+| `--input` | 输入截图文件或者截图目录 | 是 |
+| `--output` | 输出目录；单文件输入时也可以指定输出文件 | 否，默认和输入同目录 |
+| `--card-crop-debug` | 输出红框标注图，方便检查裁切位置 | 否 |
+
 ## 📏 UI审美评分维度说明
 总分按照8分制换算为100分，6个维度加权计算，完全符合设计行业通用评分标准：
 
@@ -180,9 +208,63 @@ python Automation\main.py aesthetics `
 └── output/                         # 渲染和打分结果目录
     └── {设备SN}/                   # 按设备隔离
         ├── {SN}_{qid}.jpeg         # 单个Query的渲染截图
+        ├── {SN}_{qid}_card.png     # 裁切后的卡片图
+        ├── _debug/                 # 裁切debug标注图，仅 --card-crop-debug 时生成
         ├── scores.jsonl            # 结构化打分结果，包含所有维度得分、问题、建议
         └── report.html             # 可视化打分报告，包含所有截图和评分详情
 ```
+
+## 📋 日志系统
+
+### 日志输出位置
+- **控制台**：实时显示进度和关键事件（INFO/WARNING/ERROR）
+- **文件**：`output/{设备SN}/pipeline.log`，完整记录所有事件，用于事后排查
+
+### 日志格式
+```
+2026-07-06 15:30:00 [SN123456] xiaoyi INFO collect_dsl_for_query start: qid=q1
+2026-07-06 15:30:45 [SN123456] xiaoyi INFO _wait_and_extract: DSL found, reply_len=3421
+2026-07-06 15:30:45 [SN123456] arkts INFO render start: qid=q1
+2026-07-06 15:31:10 [SN123456] arkts INFO hvigor assembleHap done: 22.3s
+2026-07-06 15:31:15 [SN123456] arkts INFO hdc file send done: 4.8s
+2026-07-06 15:31:20 [SN123456] arkts INFO bm install done: 3.2s
+2026-07-06 15:31:25 [SN123456] arkts INFO render done: qid=q1 total=40.2s screenshot=q1.jpeg
+2026-07-06 15:31:25 [SN123456] pipeline INFO run_one done: qid=q1 total=85.3s
+```
+
+### 日志级别
+| 级别 | 说明 | 输出位置 | 示例 |
+|------|------|---------|------|
+| INFO | 阶段开始/结束、耗时、正常状态变化 | 控制台+文件 | `render done: qid=q1 total=40.2s` |
+| WARNING | 重试、降级策略、非致命异常 | 控制台+文件 | `snapshot_display retry 2/3` |
+| ERROR | 失败、超时、致命错误 | 控制台+文件 | `HDC command failed: ...` |
+| DEBUG | 每次HDC命令、每次poll、完整响应 | 仅文件（--debug开启） | `run: list targets -> rc=0` |
+
+### 各模块埋点覆盖
+| 模块 | 埋点位置 | 定位的问题 |
+|------|---------|-----------|
+| hdc.py | run() 超时/失败、snapshot_display 重试/成功/文件太小 | 设备连接异常、截图文件异常 |
+| xiaoyi.py | wait_ready 超时、send_query 控件定位失败、collect_dsl_for_query 重试、DSL找到、scroll_scan 兜底 | 小艺界面异常、DSL提取失败 |
+| arkts.py | render 开始/结束耗时、hvigor clean/assembleHap 各阶段耗时、file send 推送耗时、bm install 耗时、ability start | 编译失败、安装失败、推送慢 |
+| pipeline.py | run_one/run_batch 开始/结束、各环节总耗时 | 整体流程耗时分析 |
+| main.py | 设备发现、并行调度 | 多设备并行调度异常 |
+
+### 使用方式
+```powershell
+# 正常模式：控制台看进度，日志文件存到 output/{SN}/pipeline.log
+python Automation\main.py batch
+
+# DEBUG 模式：日志文件额外记录所有 HDC 命令、poll 细节
+python Automation\main.py batch --debug
+```
+
+### 排查问题流程
+1. 打开 `output/{设备SN}/pipeline.log`
+2. 搜索 `ERROR` 定位致命错误
+3. 搜索 `WARNING` 查看重试和降级
+4. 如果信息不够，加 `--debug` 重新跑，日志文件会记录每次 HDC 命令和 poll 细节
+
+---
 
 ## 🏗️ 项目目录结构
 ```
@@ -196,6 +278,7 @@ python Automation\main.py aesthetics `
 │   │   ├── dsl.py                  # DSL解析、修复、校验
 │   │   ├── queries.py              # 测试用例文件读取
 │   │   └── ui_tree.py              # UI树解析、控件定位
+│   │   └── logger.py                # 日志模块，统一日志格式和输出
 │   ├── main.py                     # 命令行入口
 │   └── .work/                      # 临时工作目录，自动生成，包括每个设备的ArkTS副本、缓存
 ├── visual_aesthetics/              # AI审美打分模块
@@ -212,7 +295,40 @@ python Automation\main.py aesthetics `
 
 ## ⚙️ 配置说明
 ### 配置优先级（从高到低）
-1. **命令行参数** → 2. **环境变量** → 3. **配置文件默认值**
+1. **命令行参数** → 2. **`Automation/config/automation.json`** → 3. **环境变量/代码默认值**
+
+### 运行配置文件
+日常不常改的高级参数统一放在 `Automation/config/automation.json`：
+
+```json
+{
+  "automation": {
+    "deveco_sdk_home": "D:/DevEco Studio/sdk",
+    "java_home": "D:/DevEco Studio/jbr",
+    "render_wait": 5,
+    "build_timeout": 300,
+    "screenshot_retries": 3,
+    "enable_card_crop": false,
+    "card_crop_config": "Automation/config/card_crop.json"
+  },
+  "aesthetics": {
+    "enable": false,
+    "base_url": "",
+    "api_key": "",
+    "model": "doubao-seed-2-0-lite",
+    "timeout": 360,
+    "max_retries": 3,
+    "max_workers": 2
+  }
+}
+```
+
+例如你想长期默认开启裁切，可以直接把：
+```json
+"enable_card_crop": true
+```
+
+卡片裁切坐标和阈值单独放在 `Automation/config/card_crop.json`，后续渲染模块位置变化时只改这个 JSON。
 
 ### 常用环境变量，配置后不用每次传参数
 ```powershell
@@ -248,16 +364,19 @@ A：先手动打开ArkTS项目，执行一次构建，确保能正常生成签�
 A：检查小艺是否已经打开，输入法是否正常弹出，常见原因：
 1. 小艺没有启动或者被后台杀死
 2. 屏幕亮度太低导致UI树识别失败
-3. 网络不好小艺回复超时，可以加大`--reply-timeout`参数
+3. 网络不好小艺回复超时，可以在 `Automation/config/automation.json` 中加大 `reply_timeout`
 
 ### Q4：审美打分API调用失败
 A：检查：
 1. API地址和密钥是否正确
 2. 网络是否能访问火山方舟API
 3. 模型是否已经开通权限
-4. 可以加大`--aesthetics-timeout`和`--aesthetics-max-retries`参数
+4. 可以在 `Automation/config/automation.json` 中加大 `aesthetics.timeout` 和 `aesthetics.max_retries`
 
-### Q5：多设备运行时某台设备失败
+### Q5：如何排查运行中断的原因
+A：查看对应设备的日志文件 `output/{设备SN}/pipeline.log`，搜索 `ERROR` 和 `WARNING` 定位问题。如果信息不够，加 `--debug` 参数重新运行，日志文件会记录每次 HDC 命令和 poll 细节。
+
+### Q6：多设备运行时某台设备失败
 A：不会影响其他设备运行，失败设备的错误信息会单独打印，其他设备继续执行。可以单独指定失败设备的SN重新运行：
 ```powershell
 python Automation\main.py batch --sn 失败设备的SN

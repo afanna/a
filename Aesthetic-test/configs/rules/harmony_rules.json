@@ -1,0 +1,75 @@
+{
+  "R7.1": {
+    "name": "鸿蒙卡片圆角规范检查",
+    "enabled": true,
+    "severity": "major",
+    "max_deduction": 5.0,
+    "description": "不同尺寸卡片必须使用对应标准圆角，统一视觉风格，允许4px误差"
+  },
+  "R7.2": {
+    "name": "卡片阴影层级规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 3.0,
+    "description": "卡片阴影不能超过2层，透明度不能低于0.1，避免视觉混乱"
+  },
+  "R7.3": {
+    "name": "状态栏文字对比度规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 2.0,
+    "description": "【调整】原严重级改为建议级，状态栏文字对比度建议3:1，半透明卡片可适当放宽",
+    "adjust_note": "2026-07-06 扣分从4分降为2分，避免半透明状态栏误判"
+  },
+  "R7.4": {
+    "name": "图标风格统一规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 3.0,
+    "description": "同一卡片不能同时出现线性和面性图标，保持风格统一"
+  },
+  "R7.5": {
+    "name": "鸿蒙卡片布局规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 2.0,
+    "description": "【调整】原强制要求改为建议要求，核心信息建议放在左上1/3视觉焦点区，特殊设计可灵活调整",
+    "adjust_note": "2026-07-06 扣分从5分降为2分，避免居中/右对齐设计误判"
+  },
+  "R7.6": {
+    "name": "文字行高规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 3.0,
+    "description": "正文行高必须是字号的1.2-1.5倍，提高阅读舒适度"
+  },
+  "R7.7": {
+    "name": "高饱和颜色禁用规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 2.0,
+    "description": "【调整】饱和度阈值从80%改为90%，禁止使用饱和度>90%的亮色作为背景，避免刺眼，节日/运营卡片可例外",
+    "adjust_note": "2026-07-06 阈值从80%提高到90%，扣分从4分降为2分，给运营设计留灵活度"
+  },
+  "R7.8": {
+    "name": "按钮样式统一规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 3.0,
+    "description": "主按钮用填充样式，次要按钮用描边样式，保持交互逻辑统一"
+  },
+  "R7.9": {
+    "name": "特殊符号规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 2.0,
+    "description": "禁止出现emoji表情，特殊符号只能使用规范内允许的"
+  },
+  "R7.10": {
+    "name": "卡片内容占比规范检查",
+    "enabled": true,
+    "severity": "minor",
+    "max_deduction": 3.0,
+    "description": "内容建议不超过卡片面积80%，留白不少于20%，保证视觉舒适"
+  }
+}

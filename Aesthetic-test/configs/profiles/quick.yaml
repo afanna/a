@@ -1,0 +1,16 @@
+﻿# Quick profile - only fatal and major issues
+name: quick
+enabled_modules:
+  - information
+  - layout
+
+disabled_modules:
+  - color
+  - hierarchy
+  - consistency
+  - structure
+
+disabled_rules: []
+enabled_rules: []
+
+description: "Quick validation - only checks critical issues"

@@ -1,0 +1,8 @@
+{
+  "name": "default",
+  "enabled_modules": ["information", "layout", "color", "hierarchy", "consistency", "structure"],
+  "disabled_modules": [],
+  "disabled_rules": [],
+  "enabled_rules": [],
+  "description": "Default profile with all validation rules enabled"
+}

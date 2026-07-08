@@ -1,0 +1,9 @@
+{
+  "rules_version": "2026-06-24",
+  "rules": [
+    {"id": "R5.1", "name": "嵌套深度", "module": "structure", "dimension": "结构规范", "severity": "MINOR", "max_deduction": 3.0, "enabled": true, "description": "DSL 嵌套层级过深"},
+    {"id": "R5.2", "name": "空容器", "module": "structure", "dimension": "结构规范", "severity": "MINOR", "max_deduction": 2.0, "enabled": true, "description": "存在空的容器节点"},
+    {"id": "R5.3", "name": "圆角一致性", "module": "structure", "dimension": "结构规范", "severity": "MINOR", "max_deduction": 2.0, "enabled": true, "description": "圆角半径级别过多"},
+    {"id": "R5.4", "name": "过度装饰", "module": "structure", "dimension": "结构规范", "severity": "MINOR", "max_deduction": 3.0, "enabled": true, "description": "装饰性元素过多"}
+  ]
+}

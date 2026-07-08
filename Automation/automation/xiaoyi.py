@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import time
@@ -8,6 +8,7 @@ from pathlib import Path
 from .config import AutomationConfig
 from .dsl import DSL_KEYWORDS, DslExtraction, DslExtractor
 from .hdc import HdcClient
+from .logger import get_logger
 from .ui_tree import UiTree
 
 
@@ -25,6 +26,7 @@ class XiaoyiClient:
         self.extractor = extractor or DslExtractor()
         self.dump_path = config.work_dir / "current_ui_tree.json"
         self.last_dsl_fingerprint: str | None = None
+        self._log = get_logger("xiaoyi", sn=config.safe_sn or "", log_dir=config.output_dir, debug=config.debug)
 
     def dump_tree(self) -> UiTree:
         self.hdc.dump_layout(self.dump_path, self.config.remote_dump)
@@ -37,6 +39,7 @@ class XiaoyiClient:
             if tree.is_chat_ready():
                 return
             time.sleep(self.config.poll_interval)
+        self._log.error("wait_ready timeout after %.0fs", self.config.ready_timeout)
         raise TimeoutError("Timed out waiting for Xiaoyi chat UI to become ready")
 
     def send_query(self, query: str) -> None:
@@ -46,10 +49,12 @@ class XiaoyiClient:
         tree = self.dump_tree()
         send = tree.locate_control("send")
         if not send:
+            self._log.error("send_query: Send button not found")
             raise RuntimeError("Send button not found after text input")
         self.hdc.ui_input("click", *send.center)
 
     def collect_dsl_for_query(self, qid: str, query: str) -> QueryResult:
+        t0 = time.monotonic()
         last_error: Exception | None = None
         for attempt in range(1, self.config.query_max_attempts + 1):
             try:
@@ -62,6 +67,7 @@ class XiaoyiClient:
                 self.last_dsl_fingerprint = dsl_fingerprint(extraction)
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
+                self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
             except TimeoutError as exc:
                 last_error = exc
@@ -76,6 +82,7 @@ class XiaoyiClient:
             return candidate.center
         toggle = tree.locate_control("keyboard_toggle")
         if not toggle:
+            self._log.error("_ensure_input: no input or keyboard toggle found")
             raise RuntimeError("Neither text input nor keyboard toggle was found")
         self.hdc.ui_input("click", *toggle.center)
         tree = self.dump_tree()

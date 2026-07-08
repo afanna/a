@@ -1,185 +1,162 @@
-﻿# AGENTS.md: Automation-screenshot Project Agent Runbook
+# AGENTS.md
 
-## 📋 Project Overview
-**Project Purpose**: Full end-to-end automation pipeline for Xiaoyi (小艺) AI assistant DSL extraction, HarmonyOS ArkTS render, screenshot capture, and AI-powered UI aesthetic scoring.
-**Core Flow**: User Query → Xiaoyi chat UI detection → Query send → DSL extraction → ArkTS build/install → Render screenshot → UI aesthetic scoring → Structured report
-**Tech Stack**: Python 3.12+, DevEco Studio (HarmonyOS SDK), Doubao multimodal API (Volcano Ark), HDC (HarmonyOS Device Connector)
-**Project Root**: C:\Users\afan\Desktop\Automation-screenshot
+## Project Snapshot
+Source: Owner-confirmed plus repo evidence.
 
----
+Automation-screenshot is an end-to-end automation pipeline for Xiaoyi assistant UI generation checks: send a query, extract DSL from the Xiaoyi chat UI, render it through the HarmonyOS ArkTS project, capture screenshots with HDC, optionally score UI aesthetics through Doubao/Volcano Ark, and produce traceable artifacts and reports.
 
-## 🔧 Environment Setup & Dependencies
-### Required Environment
-1. **Python 3.12+** installed and in PATH
-2. **DevEco Studio** installed at default path D:\DevEco Studio (customizable via command parameters)
-   - HarmonyOS SDK included
-   - DevEco自带JDK included (required for HAP signing)
-3. **HDC (HarmonyOS Device Connector)** in system PATH
-4. **Test device(s)** connected via USB debugging, or emulator running
-5. **Doubao API access** (Volcano Ark endpoint + API key)
+Primary flow:
 
-### First-Time Setup
-1. Install Python dependencies:
-`powershell
-pip install -r requirements.txt
-`
-2. Verify HDC device connection:
-`powershell
-hdc list targets
-`
-3. Verify DevEco installation paths exist:
-   - SDK path: D:\DevEco Studio\sdk
-   - JDK path: D:\DevEco Studio\jbr
+```text
+User query -> Xiaoyi UI detection -> query send -> DSL extraction -> ArkTS build/install/start -> screenshot -> optional aesthetic scoring -> report
+```
 
----
+## Tech Stack
+- Python automation code under `Automation/`.
+- HarmonyOS ArkTS template project under `ArkTs/`.
+- HDC for device control, UI tree dumps, file transfer, app install/start, and screenshots.
+- DevEco Studio SDK and DevEco bundled JDK for ArkTS builds and HAP signing.
+- Doubao multimodal API through Volcano Ark for optional UI aesthetic scoring.
 
-## 🚀 Available Commands
-**Unified Entry Point**: python Automation/main.py <COMMAND> [OPTIONS]
+## Commands
+Run commands from the repository root. Use `python` as the validation command; if `python` is not on PATH, report that as an environment blocker instead of silently switching commands.
 
-### 1. Single Query Execution
-Run full pipeline for one manual query:
-`powershell
-python Automation/main.py one --query "帮我做一个日程卡片" --qid "test1"
-`
-Run full pipeline for a query from queries.jsonl:
-`powershell
-python Automation/main.py one-from-file --qid "q1"
-`
+```powershell
+python Automation\main.py one --qid test_weather --query "test"
+python Automation\main.py one-from-file --qid q1
+python Automation\main.py batch
+python Automation\main.py parallel --devices auto
+python Automation\main.py aesthetics --input .\output --output .\output
+```
 
-### 2. Batch Query Execution
-Run full pipeline for all queries in queries.jsonl:
-`powershell
-python Automation/main.py batch
-`
-Run pipeline with aesthetic scoring enabled:
-`powershell
-python Automation/main.py batch --enable-aesthetics --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" --aesthetics-api-key "your-api-key"
-`
+Add `--enable-aesthetics --aesthetics-base-url <url> --aesthetics-api-key <key>` only when scoring is required. Never commit API keys.
 
-### 3. Multi-Device Parallel Execution
-Run full batch pipeline on all connected devices automatically:
-`powershell
-python Automation/main.py parallel --devices auto
-`
-Run on specified devices only:
-`powershell
-python Automation/main.py parallel --devices "SN1,SN2,SN3"
-`
+## Environment Setup
+Required:
 
-### 4. Standalone Aesthetic Scoring
-Score a single image:
-`powershell
-python Automation/main.py aesthetics --input "./output/test.png" --output "./output/result.html" --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" --aesthetics-api-key "your-api-key"
-`
-Score all images in a directory and generate report:
-`powershell
-python Automation/main.py aesthetics --input "./output" --output "./output" --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" --aesthetics-api-key "your-api-key"
-`
+- Python 3.10+ is documented in README; the owner expects validation commands to use `python`.
+- DevEco Studio installed locally, default evidence path `D:/DevEco Studio`.
+- HDC available on PATH and at least one connected/debuggable HarmonyOS device or emulator.
+- Local complete dependency list exists per owner confirmation, but a root `requirements.txt` was not found during this scan. Ask the owner for the canonical dependency file before installing dependencies.
+- Doubao/Volcano Ark credentials are required only for aesthetic scoring.
 
----
+Environment/config priority is command line arguments, then environment variables, then defaults in code.
 
-## 📊 Aesthetic Scoring Dimensions
-| Dimension | Weight | Description |
-|---|---|---|
-| **基础可用性** | 25% | UI functional completeness, no broken elements, text readability, no overlap/cutoff |
-| **视觉一致性** | 20% | Color harmony, font consistency, spacing uniformity, design style consistency |
-| **信息层级** | 20% | Clear visual hierarchy, prominent core content, logical information organization |
-| **交互合理性** | 15% | Reasonable touch target size, intuitive operation flow, clear feedback signals |
-| **原创性&设计感** | 20% | Design originality, visual appeal, compliance with modern UI design principles |
+## Automation Runbook
+Shortest confirmed development path:
 
-**Scoring Range**: 0-100 points, scores <60 are considered unqualified.
+1. Read this file and the relevant `agents.d/` file for the task.
+2. Confirm environment prerequisites with non-mutating checks such as `python --version` and `hdc list targets`.
+3. For a single pipeline run, use `python Automation\main.py one --qid <id> --query <text>`.
+4. For regression, use `python Automation\main.py batch` or `python Automation\main.py parallel --devices auto`.
+5. Inspect generated artifacts under `dsl/`, `output/`, and `output/{SN}/pipeline.log`.
 
----
+Risk governance update: previously observed Python runtime risks around logging, timers, batch counters, send-button flow, and no-SN ArkTS template writes have been remediated in code. Do not claim the pipeline is verified until `python` is available and the checks in `agents.d/debug-playbook.md` pass.
 
-## 📁 Project Structure & Output Paths
-### Core Directories
-`
-Automation/              # Core automation pipeline code
-visual_aesthetics/       # AI aesthetic scoring module
-ArkTs/                   # Original ArkTS project template (READ ONLY, never modify directly)
-queries.jsonl            # Query case library
-dsl/                     # Extracted DSL files, isolated by device SN: dsl/{SN}/{qid}.jsonl
-output/                  # Output directory, isolated by device SN: output/{SN}/
-  - {qid}.png            # Screenshot file
-  - scores.jsonl         # Scoring result data
-  - report.html          # Visual scoring report
-.work/                   # Temporary working directory (auto-cleaned, never commit)
-`
+## Approved Skills And Tools
+- `agent-runbook-distiller`: use when updating this runbook or adding durable setup/build/test/debug knowledge. Safety: autonomous for reading; ask before modifying code or installing packages.
+- Project CLI `Automation\main.py`: use for pipeline, parallel, and scoring workflows. Safety: autonomous for normal runs that generate `dsl/`, `output/`, and `Automation/.work/`; ask first before dependency installation, code changes, or secret-bearing scoring runs.
+- HDC: use for device checks and diagnostics. Safety: autonomous for `hdc list targets`; ask before disruptive device actions unless the owner has requested a pipeline run.
 
-### Important File Paths
-| Item | Path |
-|---|---|
-| Main entry | Automation/main.py |
-| Configuration | Automation/automation/config.py |
-| HDC client | Automation/automation/hdc.py |
-| Pipeline logic | Automation/automation/pipeline.py |
-| Scoring config | isual_aesthetics/config.py |
-| Scoring rubric | isual_aesthetics/core/rubric.py |
+Detailed tooling inventory is in `agents.d/tooling.md`.
 
----
+## agents.d Index
+- `agents.d/bootstrap.md`: prerequisites, setup, environment variables, and first-run success signals.
+- `agents.d/tooling.md`: approved tools, commands, inputs, outputs, and safety levels.
+- `agents.d/development-loop.md`: fast checks, slow checks, and verification expectations.
+- `agents.d/architecture-map.md`: module boundaries, data flow, and files that change together.
+- `agents.d/debug-playbook.md`: symptoms, diagnostics, remediated risks, and remaining verification blockers.
+- `agents.d/change-recipes.md`: common change paths and required checks.
+- `agents.d/review-handoff.md`: evidence required before human review.
+- `agents.d/risk-areas.md`: hard invariants, forbidden actions, secrets, cost, and device risks.
+- `agents.d/04-scoring-rules.md`: aesthetic scoring dimensions and thresholds.
 
-## 🛡️ Safety Rules & Boundaries
-### Non-Negotiable Rules
-1. **Never modify files in ArkTs/ directory directly**: All builds use isolated temporary copies created in .work/{SN}/ directory per device.
-2. **Never hardcode secrets/API keys in code**: All sensitive parameters must be passed via command line arguments or environment variables only.
-3. **Never commit temporary/cache files**: .gitignore already excludes .work/, __pycache__, *.pyc, output/, dsl/ and other temporary files.
-4. **Cache is disabled by default**: Explicitly enable only when needed via --aesthetics-disable-cache false parameter.
-5. **All resources are isolated by device SN**: No cross-device conflicts for build artifacts, outputs, temporary files.
+## Repository Map
+- `Automation/main.py`: CLI entry point.
+- `Automation/automation/`: pipeline, HDC, Xiaoyi, DSL, ArkTS, query, UI tree, and logging modules.
+- `visual_aesthetics/`: scoring configuration, model adapter, judge API, cache, and report builder.
+- `ArkTs/`: source ArkTS template. Treat as protected; multi-device work copies it to `Automation/.work/devices/{SN}/ArkTs`.
+- `queries.jsonl`: query case library.
+- `dsl/`: generated DSL artifacts, ignored by git.
+- `output/`: generated screenshots, logs, scores, and HTML reports, ignored by git.
+- `Automation/.work/`: generated working copies and temporary files, ignored by git.
 
-### Permissions & Escalation Rules
-| Action | Permission Level |
-|---|---|
-| Run pipeline commands, generate outputs | ✅ Autonomous |
-| Install Python dependencies | ⚠️ Ask first |
-| Modify core pipeline code | ⚠️ Ask first |
-| Modify ArkTs/ template files | ❌ Never |
-| Delete files outside .work/, output/, dsl/ | ⚠️ Ask first |
-| Push changes to git repository | ⚠️ Ask first |
+## Development Rules
+- Keep changes scoped to the relevant module and follow existing Python type-hint style.
+- Preserve UTF-8 and Chinese comments where the surrounding code uses them.
+- Do not hardcode credentials, local secrets, API keys, or private account identifiers.
+- Treat `ArkTs/` as protected. Only change it after explicit owner approval.
+- Keep generated artifacts out of commits.
+- If repo evidence and README conflict, prefer source code for current behavior and record unresolved conflicts in the handoff.
 
----
+## Testing and Verification
+Before claiming completion:
 
-## 🐛 Common Issues & Debugging
-### 1. DevEco/SDK/JDK path errors
-**Symptom**: DEVECO_SDK_HOME is not configured or JDK version mismatch
-**Fix**: Add parameters --deveco-sdk-home "D:\DevEco Studio\sdk" --java-home "D:\DevEco Studio\jbr"
+```powershell
+python --version
+python -m py_compile Automation\main.py Automation\automation\pipeline.py Automation\automation\arkts.py Automation\automation\hdc.py Automation\automation\xiaoyi.py
+```
 
-### 2. HDC device connection errors
-**Symptom**: No HDC devices found
-**Fix**: 
-- Verify USB debugging is enabled on device
-- Run hdc kill && hdc start to restart HDC service
-- Reconnect device
+For pipeline behavior, run the smallest relevant command only when devices, DevEco, HDC, dependencies, and any required credentials are available:
 
-### 3. Build/Install errors
-**Symptom**: HAP build failed or installation failed
-**Fix**:
-- Check DevEco SDK version matches device HarmonyOS version
-- Verify device has enough storage space
-- Uninstall existing test app from device first: hdc shell bm uninstall -n yyx.test.test
+```powershell
+python Automation\main.py one --query "test" --qid "test"
+```
 
-### 4. Scoring API errors
-**Symptom**: API call failed, timeout, or authentication error
-**Fix**:
-- Verify API endpoint and key are correct
-- Check network connectivity to Volcano Ark service
-- Increase timeout parameter: --aesthetics-timeout 600
+Expected success signals: DSL file under `dsl/`, screenshot under `output/`, and no fatal errors in `output/{SN}/pipeline.log` when a device SN is used.
 
----
+## Debugging Playbook
+Use `agents.d/debug-playbook.md` first. Important starting points:
 
-## 📝 Code Conventions
-- All code uses UTF-8 encoding
-- Use Python type hints for all function signatures
-- Comments written in Chinese for core logic
-- Follow existing code structure when adding new features
-- Add appropriate error handling and logging for new functionality
-- Test all changes locally before committing
+- `python` not found: environment blocker; do not switch to `py` unless the owner approves changing the validation command.
+- No HDC devices: run `hdc list targets`, verify USB debugging/emulator, then escalate if still empty.
+- DSL extraction fails: inspect Xiaoyi readiness, UI tree dumps, `reply-timeout`, `query-attempt-timeout`, and logs.
+- Screenshot too small or missing: inspect `snapshot_display` retries and `output/{SN}/pipeline.log`.
+- Aesthetic API fails: verify endpoint/key out of band, increase timeout/retries only with non-secret values.
 
----
+## Change Recipes
+See `agents.d/change-recipes.md` for focused workflows. Common paths:
 
-## 🧪 Validation & Testing
-All changes must pass these validation steps before merging:
-1. Run single query pipeline successfully: python Automation/main.py one --query "测试" --qid "test"
-2. Verify DSL is extracted correctly in dsl/ directory
-3. Verify screenshot is generated correctly in output/ directory
-4. (Optional) Test aesthetic scoring functionality works
-5. (Optional) Test parallel execution works with at least 2 devices
+- CLI parameter changes usually touch `Automation/main.py`, `Automation/automation/config.py`, README/runbook docs, and CLI verification.
+- DSL extraction changes usually touch `xiaoyi.py`, `dsl.py`, `ui_tree.py`, and single-query validation.
+- ArkTS render/install changes usually touch `arkts.py`, HDC interactions, and device-backed validation.
+- Scoring changes usually touch `visual_aesthetics/` and standalone `aesthetics` validation.
+
+## Agent Workflow
+1. Read the task-specific runbook file.
+2. Inspect nearby code before editing.
+3. Make focused changes; do not rewrite unrelated modules.
+4. Run the relevant fast check, then the smallest behavior check available.
+5. Report commands run, success signals, skipped checks, and remaining risks.
+
+## Human Review Handoff
+Include:
+
+- Files changed and why.
+- Source labels for any new runbook knowledge: repo-confirmed, owner-confirmed, observed during run, risk judgment, or unknown.
+- Commands run and exact result summary.
+- Generated artifacts inspected.
+- Checks skipped and the blocker.
+- Any risk that still needs owner/device/API validation.
+
+## Risk Areas
+- `ArkTs/` template changes.
+- HAP build/sign/install flow and device commands.
+- API credentials and scoring cost.
+- Multi-device path isolation by safe SN.
+- Runtime verification blockers listed in `agents.d/debug-playbook.md`.
+
+## Do Not
+- Do not modify `ArkTs/` directly without explicit approval.
+- Do not commit `dsl/`, `output/`, `Automation/.work/`, logs, caches, archives, or screenshots generated during local runs.
+- Do not hardcode secrets or commit `.env` files.
+- Do not run destructive cleanup outside generated directories without approval.
+- Do not push git changes without approval.
+- Do not claim automation readiness when `python` is unavailable or py-compile/pipeline checks were skipped.
+
+## Missing Context
+- Owner confirmed a local complete dependency list exists, but the canonical root dependency file was not present in this scan.
+- Platform-specific generated file requested: `CLAUDE.md` is provided. No `.opencode/` or `GEMINI.md` was requested.
+- Observed verification: `python --version` reports Python 3.12.10 and py-compile passes. Device-backed pipeline validation is blocked until `hdc list targets` shows a connected device.
+
+<!-- Codex: prefer rg over slower search tools; preserve user changes; keep edits scoped and verify with python. -->

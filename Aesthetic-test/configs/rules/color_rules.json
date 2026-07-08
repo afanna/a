@@ -1,0 +1,9 @@
+{
+  "rules_version": "2026-06-24",
+  "rules": [
+    {"id": "R3.1", "name": "颜色过多", "module": "color", "dimension": "色彩和谐", "severity": "MINOR", "max_deduction": 5.0, "enabled": true, "description": "主色过多导致视觉混乱"},
+    {"id": "R3.2", "name": "对比度不足", "module": "color", "dimension": "色彩和谐", "severity": "MAJOR", "max_deduction": 5.0, "enabled": true, "description": "文本-背景对比度低于 WCAG AA 标准"},
+    {"id": "R3.3", "name": "高饱和度", "module": "color", "dimension": "色彩和谐", "severity": "MINOR", "max_deduction": 3.0, "enabled": true, "description": "过度饱和的颜色视觉刺眼"},
+    {"id": "R3.4", "name": "配色冲突", "module": "color", "dimension": "色彩和谐", "severity": "MAJOR", "max_deduction": 5.0, "enabled": true, "description": "互补色冲突（如红绿、橙蓝）"}
+  ]
+}
