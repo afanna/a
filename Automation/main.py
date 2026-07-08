@@ -95,6 +95,14 @@ def build_parser() -> argparse.ArgumentParser:
     batch = subparsers.add_parser("batch", help="Collect all DSLs first, then render all screenshots")
     add_common_arguments(batch, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
     batch.add_argument("--queries", type=Path)
+
+    collect_dsl = subparsers.add_parser("collect-dsl", help="Send queries and save DSL files only")
+    add_common_arguments(collect_dsl, with_defaults=False)
+    collect_dsl.add_argument("--queries", type=Path)
+
+    render_dsl_dir = subparsers.add_parser("render-dsl-dir", help="Render existing DSL files and screenshot")
+    add_common_arguments(render_dsl_dir, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
+    render_dsl_dir.add_argument("--dsl-dir", type=Path, help="Directory containing *.jsonl DSL files")
     
     parallel = subparsers.add_parser("parallel", help="Run the full query batch on multiple devices")
     add_common_arguments(parallel, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
@@ -283,6 +291,18 @@ def main() -> int:
             print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
         if aesthetics_config.enable:
             print(f"Aesthetics scoring done, report={config.report_html_path}")
+        return 0
+
+    if args.command == "collect-dsl":
+        results = pipeline.collect_dsls(args.queries)
+        for result in results:
+            print(f"{result.qid}: DSL={result.dsl_path}")
+        return 0
+
+    if args.command == "render-dsl-dir":
+        results = pipeline.render_dsl_dir(args.dsl_dir)
+        for result in results:
+            print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
         return 0
 
     raise AssertionError(args.command)

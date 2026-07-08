@@ -61,26 +61,11 @@ class AutomationPipeline:
         cases = load_queries(queries_path or self.config.queries_path)
 
         dsl_fail = 0
-        query_results: list[QueryResult] = []
-        for case in cases:
-            try:
-                query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
-            except TimeoutError as exc:
-                dsl_fail += 1
-                self._log.error("DSL failed: qid=%s error=%s", case.qid, exc)
-                continue
+        query_results = self.collect_dsls(queries_path, log_summary=False)
+        dsl_fail = len(cases) - len(query_results)
 
-        render_fail = 0
-        render_results: list[RenderResult] = []
-        for result in query_results:
-            try:
-                screenshot = self.arkts.render(result.qid, result.dsl_path)
-            except Exception as exc:
-                render_fail += 1
-                self._log.error("Render failed: qid=%s dsl=%s error=%s", result.qid, result.dsl_path, exc)
-                continue
-            card_path = self._crop_card(result.qid, screenshot)
-            render_results.append(RenderResult(result.qid, result.dsl_path, screenshot, card_path))
+        render_results = self.render_dsl_files([result.dsl_path for result in query_results], log_summary=False)
+        render_fail = len(query_results) - len(render_results)
 
         if self.aesthetics_judge and render_results:
             card_paths = [result.card_path for result in render_results if result.card_path is not None]
@@ -114,6 +99,66 @@ class AutomationPipeline:
         self._log.info("=" * 60)
         return render_results
 
+    def collect_dsls(self, queries_path: Path | None = None, *, log_summary: bool = True) -> list[QueryResult]:
+        """Send all queries and save DSL files without rendering."""
+        t0 = time.monotonic()
+        cases = load_queries(queries_path or self.config.queries_path)
+        query_results: list[QueryResult] = []
+        failed = 0
+        for case in cases:
+            try:
+                query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
+            except TimeoutError as exc:
+                failed += 1
+                self._log.error("DSL failed: qid=%s error=%s", case.qid, exc)
+                continue
+
+        if log_summary:
+            self._log.info(
+                "DSL SUMMARY: total=%d ok=%d failed=%d total_time=%.1fs",
+                len(cases),
+                len(query_results),
+                failed,
+                time.monotonic() - t0,
+            )
+        return query_results
+
+    def render_dsl_dir(self, dsl_dir: Path | None = None) -> list[RenderResult]:
+        """Render every DSL file under a directory, then screenshot and optionally crop."""
+        directory = dsl_dir or self.config.dsl_dir
+        dsl_files = sorted(directory.glob("*.jsonl"))
+        if not dsl_files:
+            self._log.error("No DSL files found: %s", directory)
+            return []
+        return self.render_dsl_files(dsl_files)
+
+    def render_dsl_files(self, dsl_files: list[Path], *, log_summary: bool = True) -> list[RenderResult]:
+        t0 = time.monotonic()
+        render_fail = 0
+        render_results: list[RenderResult] = []
+        for dsl_path in dsl_files:
+            qid = qid_from_dsl_path(dsl_path, self.config.safe_sn)
+            try:
+                screenshot = self.arkts.render(qid, dsl_path)
+            except Exception as exc:
+                render_fail += 1
+                self._log.error("Render failed: qid=%s dsl=%s error=%s", qid, dsl_path, exc)
+                continue
+            card_path = self._crop_card(qid, screenshot)
+            render_results.append(RenderResult(qid, dsl_path, screenshot, card_path))
+
+        if log_summary:
+            self._log.info(
+                "RENDER SUMMARY: total=%d ok=%d failed=%d card_ok=%d card_fail=%d total_time=%.1fs",
+                len(dsl_files),
+                len(render_results),
+                render_fail,
+                sum(1 for result in render_results if result.card_path is not None),
+                sum(1 for result in render_results if result.card_path is None),
+                time.monotonic() - t0,
+            )
+        return render_results
+
     def _should_crop_cards(self) -> bool:
         return self.config.enable_card_crop or bool(self.aesthetics_config and self.aesthetics_config.enable)
 
@@ -145,3 +190,10 @@ class AutomationPipeline:
             result.card_path,
         )
         return result.card_path
+
+
+def qid_from_dsl_path(path: Path, safe_sn: str | None = None) -> str:
+    qid = path.stem
+    if safe_sn and qid.startswith(f"{safe_sn}_"):
+        return qid[len(safe_sn) + 1 :]
+    return qid
