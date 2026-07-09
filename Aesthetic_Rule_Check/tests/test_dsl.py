@@ -45,7 +45,7 @@ def test_missing_dsl_file_does_not_raise(tmp_path: Path) -> None:
     assert info.required_texts == []
     assert info.component_count == 0
     assert info.warnings
-    assert "not found" in info.warnings[0]
+    assert "DSL 文件不存在" in info.warnings[0]
 
 
 def test_resolves_extended_data_model_expression() -> None:

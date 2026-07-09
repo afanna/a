@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from .config import Config
+from .localization import metric_label, reason_label
 from .math_utils import clamp, weighted_average
 from .metrics import MetricContext, create_metrics
 from .models import DimensionResult, EvaluationResult, MetricResult
@@ -83,20 +84,21 @@ def missing_texts(metrics: list[MetricResult]) -> list[str]:
 def warnings_for(context: MetricContext, metrics: list[MetricResult], config: Config) -> list[str]:
     warnings: list[str] = list(context.dsl.warnings)
     for metric in metrics:
+        label = metric_label(metric.dimension, metric.name)
         if metric.status == "error":
-            warnings.append(f"Metric error: {metric.dimension}.{metric.name}: {metric.details.get('error')}")
+            warnings.append(f"指标异常：{label}：{metric.details.get('error')}")
         if metric.status == "skipped":
-            warnings.append(f"Metric skipped: {metric.dimension}.{metric.name}: {metric.details.get('reason')}")
+            warnings.append(f"指标跳过：{label}：{reason_label(metric.details.get('reason'))}")
         if metric.score is not None and float(config.metric_config(metric.dimension, metric.name).get("weight", 0)) <= 0:
-            warnings.append(f"Metric has no positive configured weight: {metric.dimension}.{metric.name}")
+            warnings.append(f"指标权重未配置为正数：{label}")
     for metric in metrics:
         if metric.dimension != "information" or metric.name != "coverage" or metric.score != 0:
             continue
         reason = metric.details.get("reason")
         if reason:
-            warnings.append("Information coverage is 0 because no DSL required display text was found.")
+            warnings.append("信息覆盖率为 0：DSL 中没有提取到必要展示文字。")
         else:
-            warnings.append("Information coverage is 0 because no required DSL text matched OCR output.")
+            warnings.append("信息覆盖率为 0：必要 DSL 文字没有匹配到截图 OCR 结果。")
     return warnings
 
 

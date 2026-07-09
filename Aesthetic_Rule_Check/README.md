@@ -265,4 +265,4 @@ visual:
       weight: 5
 ```
 
-如果新增 metric 没有配置正权重，报告会提示 `Metric has no positive configured weight`。
+如果新增指标没有配置正权重，报告会提示“指标权重未配置为正数”。

@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>aesthetic-v4 report</title>
+  <style>
+    :root { color-scheme: light; --bg: #f7f7f5; --panel: #fff; --text: #171717; --muted: #666b73; --line: #d9ddd6; --accent: #1f6f61; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+    body > header { padding: 24px; border-bottom: 1px solid var(--line); background: #fff; position: sticky; top: 0; z-index: 2; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    .meta { color: var(--muted); font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; }
+    main { display: grid; grid-template-columns: minmax(210px, 260px) 1fr; gap: 18px; padding: 18px; }
+    aside { align-self: start; position: sticky; top: 98px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid var(--line); padding: 7px 0; font-size: 13px; text-align: left; }
+    td { text-align: right; color: var(--muted); }
+    .cards { display: grid; gap: 14px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .card > header { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border-bottom: 1px solid var(--line); }
+    h2 { margin: 0; font-size: 17px; }
+    h2 + p { margin: 5px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+    .score { text-align: right; min-width: 110px; }
+    .score b { font-size: 28px; line-height: 1; }
+    .score span { color: var(--muted); font-size: 12px; }
+    .score em { display: block; margin-top: 4px; color: var(--accent); font-style: normal; font-weight: 650; }
+    .rationale { padding: 14px; border-bottom: 1px solid var(--line); color: #2c3035; line-height: 1.55; font-size: 14px; }
+    .view { display: grid; grid-template-columns: minmax(280px, 42%) 1fr; gap: 14px; padding: 14px; border-top: 1px solid var(--line); }
+    .shot { background: #ebeee9; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 180px; display: grid; place-items: center; }
+    .shot img { width: 100%; height: auto; display: block; }
+    .view h3 { margin: 0 0 10px; font-size: 15px; }
+    .view h3 span { color: var(--muted); font-weight: 500; margin-left: 8px; }
+    .axis { margin-bottom: 10px; }
+    .occ { margin: 8px 0; font-size: 12px; color: var(--muted); }
+    .occ.warn { color: #8a4b13; font-weight: 650; }
+    .occ.ok { color: #4d655d; }
+    .occ-table { margin: 8px 0 10px; }
+    .occ-table th, .occ-table td { text-align: left; vertical-align: top; padding: 6px 8px 6px 0; }
+    .designer-review { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+    .designer-review h4 { margin: 8px 0 4px; font-size: 13px; }
+    .designer-review ul { margin: 0 0 8px 18px; padding: 0; color: #2c3035; }
+    .view p { margin: 0; color: #2c3035; line-height: 1.55; font-size: 13px; }
+    .missing { color: var(--muted); font-size: 13px; }
+    @media (max-width: 860px) { main { grid-template-columns: 1fr; } aside { position: static; } .view { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>aesthetic-v4 VLM Judge Report</h1>
+    <div class="meta">
+      <span>generated 2026-07-09 19:26:48</span>
+      <span>records 19</span>
+      <span>scored 19</span>
+      <span>partial/failed 0</span>
+    </div>
+  </header>
+  <main>
+    <aside>
+      <h2>分档统计</h2>
+      <table><tbody><tr><th>[0,10)</th><td>1</td></tr><tr><th>[10,20)</th><td>0</td></tr><tr><th>[20,30)</th><td>13</td></tr><tr><th>[30,40)</th><td>1</td></tr><tr><th>[40,50)</th><td>3</td></tr><tr><th>[50,60)</th><td>1</td></tr><tr><th>[60,70)</th><td>0</td></tr><tr><th>[70,80)</th><td>0</td></tr><tr><th>[80,100]</th><td>0</td></tr></tbody></table>
+    </aside>
+    <section class="cards">
+      
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>1.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\1.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中[20,30)档：属于简单的天气关怀工具页面，可见证据是已具备完整基础功能结构，展示了地区、气温、天气、感冒指数和关怀提示，带有操作按钮。未进更高档因为整体都是默认样式，没有专属视觉品牌系统，设计粗糙缺乏打磨，未达到产品级设计要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/1.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.4</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中[20,30)档：属于简单的天气关怀工具页面，可见证据是已具备完整基础功能结构，展示了地区、气温、天气、感冒指数和关怀提示，带有操作按钮。未进更高档因为整体都是默认样式，没有专属视觉品牌系统，设计粗糙缺乏打磨，未达到产品级设计要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>1.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\1.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单天气工具类UI；可见证据是完整展示了城市天气状态、温度、出行提示与感冒指数信息，结构完整功能清晰；未进更高档因为整体风格朴素默认，无定制化品牌设计，视觉语言通用，不满足完整产品级UI的丰富度要求</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/1.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单天气工具类UI；可见证据是完整展示了城市天气状态、温度、出行提示与感冒指数信息，结构完整功能清晰；未进更高档因为整体风格朴素默认，无定制化品牌设计，视觉语言通用，不满足完整产品级UI的丰富度要求</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>1.3</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\1.3.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单基础天气工具页面；可见证据是界面结构完整，包含城市温度、天气状态、健康提示与功能按钮，布局清晰可识别信息；未进更高档因为整体为基础默认设计，无专属品牌体系与精细化视觉打磨，仍不属于产品级成品设计。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/1.3.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单基础天气工具页面；可见证据是界面结构完整，包含城市温度、天气状态、健康提示与功能按钮，布局清晰可识别信息；未进更高档因为整体为基础默认设计，无专属品牌体系与精细化视觉打磨，仍不属于产品级成品设计。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>2.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\2.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单赛事训练倒计时工具类型；可见证据是完整展示了赛事名称、倒计时、开跑日期、今日训练计划和操作按钮，布局清晰，功能完整；未进更高档因为仅单功能卡片，无专属品牌设计体系，视觉风格偏基础通用，内容单薄无更深产品层级</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/2.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单赛事训练倒计时工具类型；可见证据是完整展示了赛事名称、倒计时、开跑日期、今日训练计划和操作按钮，布局清晰，功能完整；未进更高档因为仅单功能卡片，无专属品牌设计体系，视觉风格偏基础通用，内容单薄无更深产品层级</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[40,50)" data-status="scored">
+  <header>
+    <div>
+      <h2>2.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\2.2.png</p>
+    </div>
+    <div class="score"><b>45.00</b><span>/100</span><em>[40,50)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [40,50) 档，属于赛事主题倒计时工具；可见证据是清晰的信息层级，倒计时数字做了突出强调，配色连贯统一，有明确的行动按钮；未进入更高档位是因为仅保留核心倒计时功能，无额外模块，缺乏独特品牌设计和更丰富的产品深度。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/2.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>45.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>3.7</td></tr><tr><th>构图层级</th><td>3.7</td></tr><tr><th>字体表现</th><td>3.4</td></tr><tr><th>色彩与材质</th><td>3.9</td></tr><tr><th>细节完成度</th><td>3.3</td></tr><tr><th>基础可用性</th><td>3.9</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [40,50) 档，属于赛事主题倒计时工具；可见证据是清晰的信息层级，倒计时数字做了突出强调，配色连贯统一，有明确的行动按钮；未进入更高档位是因为仅保留核心倒计时功能，无额外模块，缺乏独特品牌设计和更丰富的产品深度。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[50,60)" data-status="scored">
+  <header>
+    <div>
+      <h2>3.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\3.1.png</p>
+    </div>
+    <div class="score"><b>55.00</b><span>/100</span><em>[50,60)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [50,60) 档：属于常规移动健康工具的睡眠数据展示界面；可见证据是排版层次清晰，文字大小层级区分明确，色彩统一协调，睡眠时长、进度、提醒设置等组件规整清晰，具备一定视觉打磨；未进更高档因为仅为通用常规数据组件，无独特定制化品牌设计体系，内容深度不足，不符合更高档的差异化设计要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/3.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>55.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>4.6</td></tr><tr><th>构图层级</th><td>4.6</td></tr><tr><th>字体表现</th><td>4.0</td></tr><tr><th>色彩与材质</th><td>4.8</td></tr><tr><th>细节完成度</th><td>3.9</td></tr><tr><th>基础可用性</th><td>4.8</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [50,60) 档：属于常规移动健康工具的睡眠数据展示界面；可见证据是排版层次清晰，文字大小层级区分明确，色彩统一协调，睡眠时长、进度、提醒设置等组件规整清晰，具备一定视觉打磨；未进更高档因为仅为通用常规数据组件，无独特定制化品牌设计体系，内容深度不足，不符合更高档的差异化设计要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[40,50)" data-status="scored">
+  <header>
+    <div>
+      <h2>3.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\3.2.png</p>
+    </div>
+    <div class="score"><b>45.00</b><span>/100</span><em>[40,50)</em></div>
+  </header>
+  <div class="rationale">image: 命中[40,50)档：属于常见的普通设计健康工具UI；可见证据是本界面为睡眠监测组件，采用紫色统一主题，清晰划分睡眠数据与早睡提醒两个功能模块，信息完整可读，布局逻辑清晰；未进更高档是因为整体为通用模板设计，没有独特品牌识别体系与精细差异化材质细节，不符合更高档要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/3.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>45.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>3.8</td></tr><tr><th>构图层级</th><td>3.8</td></tr><tr><th>字体表现</th><td>3.2</td></tr><tr><th>色彩与材质</th><td>4.0</td></tr><tr><th>细节完成度</th><td>3.1</td></tr><tr><th>基础可用性</th><td>4.0</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中[40,50)档：属于常见的普通设计健康工具UI；可见证据是本界面为睡眠监测组件，采用紫色统一主题，清晰划分睡眠数据与早睡提醒两个功能模块，信息完整可读，布局逻辑清晰；未进更高档是因为整体为通用模板设计，没有独特品牌识别体系与精细差异化材质细节，不符合更高档要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>4.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\4.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于轻量日程提醒工具，核心功能完整；可见证据是单张紫色主题卡片，包含会议名称、时间、倒计时提醒和操作按钮，结构清晰可读；未进更高档因为仅单一功能卡片，内容单薄，无完整品牌设计体系，未达到产品级打磨标准。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/4.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.3</td></tr><tr><th>构图层级</th><td>2.0</td></tr><tr><th>字体表现</th><td>1.4</td></tr><tr><th>色彩与材质</th><td>2.2</td></tr><tr><th>细节完成度</th><td>1.8</td></tr><tr><th>基础可用性</th><td>2.2</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于轻量日程提醒工具，核心功能完整；可见证据是单张紫色主题卡片，包含会议名称、时间、倒计时提醒和操作按钮，结构清晰可读；未进更高档因为仅单一功能卡片，内容单薄，无完整品牌设计体系，未达到产品级打磨标准。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>4.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\4.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于基础日程提醒工具组件；可见证据是完整展示了提醒主题、会议时间、提前提醒规则和操作按钮，核心工作流完整；未进更高档因为整体视觉风格普通，无定制化品牌设计，以默认基础样式为主，缺少丰富产品层级与设计细节，达不到普通产品UI的完整标准。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/4.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.4</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于基础日程提醒工具组件；可见证据是完整展示了提醒主题、会议时间、提前提醒规则和操作按钮，核心工作流完整；未进更高档因为整体视觉风格普通，无定制化品牌设计，以默认基础样式为主，缺少丰富产品层级与设计细节，达不到普通产品UI的完整标准。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>5.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\5.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于基础蓝牙耳机电量查看工具类UI；可见证据是界面完整展示耳机名称、左右耳电量进度、连接降噪状态，还有两个快捷功能按钮，布局清晰可用；未进入更高档位因为整体为通用默认风格，没有独特品牌设计体系，功能组件都非常基础，未达到产品级精细设计要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/5.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.4</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于基础蓝牙耳机电量查看工具类UI；可见证据是界面完整展示耳机名称、左右耳电量进度、连接降噪状态，还有两个快捷功能按钮，布局清晰可用；未进入更高档位因为整体为通用默认风格，没有独特品牌设计体系，功能组件都非常基础，未达到产品级精细设计要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>5.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\5.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于基础蓝牙耳机电量查看工具；可见证据是完整显示了耳机名称、左右耳剩余电量与连接状态，带有两个功能入口，结构完整；未进更高档因为整体为默认控件样式，无定制化视觉设计，存在大量空白，未达到产品级设计标准。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/5.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.4</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于基础蓝牙耳机电量查看工具；可见证据是完整显示了耳机名称、左右耳剩余电量与连接状态，带有两个功能入口，结构完整；未进更高档因为整体为默认控件样式，无定制化视觉设计，存在大量空白，未达到产品级设计标准。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[30,40)" data-status="scored">
+  <header>
+    <div>
+      <h2>6.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\6.1.png</p>
+    </div>
+    <div class="score"><b>35.00</b><span>/100</span><em>[30,40)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [30,40) 档：属于普通设备状态工具UI；可见证据为完整的多卡片布局，清晰展示多设备电量进度和内存使用信息，功能可读完整；未进入更高档是因为视觉语言完全通用，没有专属品牌设计，细节打磨有限，不符合更高档的设计要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/6.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>35.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>3.0</td></tr><tr><th>构图层级</th><td>3.0</td></tr><tr><th>字体表现</th><td>2.4</td></tr><tr><th>色彩与材质</th><td>3.0</td></tr><tr><th>细节完成度</th><td>2.3</td></tr><tr><th>基础可用性</th><td>3.2</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [30,40) 档：属于普通设备状态工具UI；可见证据为完整的多卡片布局，清晰展示多设备电量进度和内存使用信息，功能可读完整；未进入更高档是因为视觉语言完全通用，没有专属品牌设计，细节打磨有限，不符合更高档的设计要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>6.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\6.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简易手机清理工具界面，可见证据为完整功能结构，包含分类图标、内存数据展示与一键清理操作按钮，功能流程完整。未进更高档因为仅使用通用基础图形，无专属品牌设计，视觉打磨不足，默认感强，达不到产品级设计要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/6.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简易手机清理工具界面，可见证据为完整功能结构，包含分类图标、内存数据展示与一键清理操作按钮，功能流程完整。未进更高档因为仅使用通用基础图形，无专属品牌设计，视觉打磨不足，默认感强，达不到产品级设计要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>7.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\7.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单轻量信息工具组件；可见证据是包含天气信息、日程安排、目的地和操作按钮，拥有完整基础工作流；未进入更高档是因为整体默认样式占比极高，无专属品牌设计系统，设计深度不足，未达到普通成品UI的完整度要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/7.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.2</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.9</td></tr><tr><th>色彩与材质</th><td>2.2</td></tr><tr><th>细节完成度</th><td>1.5</td></tr><tr><th>基础可用性</th><td>2.4</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单轻量信息工具组件；可见证据是包含天气信息、日程安排、目的地和操作按钮，拥有完整基础工作流；未进入更高档是因为整体默认样式占比极高，无专属品牌设计系统，设计深度不足，未达到普通成品UI的完整度要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>7.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\7.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单出行工具类页面；可见证据是页面完整包含天气信息、日程安排、打车操作入口，基础功能结构完整；未进入更高档是因为整体为默认通用样式，无专属品牌设计，设计深度不足，仅满足基础功能，达不到完整产品UI的标准。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/7.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.1</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单出行工具类页面；可见证据是页面完整包含天气信息、日程安排、打车操作入口，基础功能结构完整；未进入更高档是因为整体为默认通用样式，无专属品牌设计，设计深度不足，仅满足基础功能，达不到完整产品UI的标准。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>8.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\8.1.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中[20,30)档，属于基础的使用时长管控工具页面；可见证据为页面具备完整的超时提示、时长数据展示、操作按钮，结构完整逻辑清晰；未进更高档因为整体无定制化视觉系统，仅为基础布局，缺乏品牌设计与细节打磨，不属于产品级精致设计。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/8.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.3</td></tr><tr><th>构图层级</th><td>2.0</td></tr><tr><th>字体表现</th><td>1.7</td></tr><tr><th>色彩与材质</th><td>2.0</td></tr><tr><th>细节完成度</th><td>1.5</td></tr><tr><th>基础可用性</th><td>2.2</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中[20,30)档，属于基础的使用时长管控工具页面；可见证据为页面具备完整的超时提示、时长数据展示、操作按钮，结构完整逻辑清晰；未进更高档因为整体无定制化视觉系统，仅为基础布局，缺乏品牌设计与细节打磨，不属于产品级精致设计。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[20,30)" data-status="scored">
+  <header>
+    <div>
+      <h2>8.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\8.2.png</p>
+    </div>
+    <div class="score"><b>25.00</b><span>/100</span><em>[20,30)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [20,30) 档：属于简单工具类页面，是完整的应用使用时长管控工具界面；可见证据是清晰展示了已用时长、设定管控时长、超时状态和操作按钮，工作流完整；未进入更高档是因为整体视觉偏基础默认，无定制化品牌设计和精细打磨，属于默认重度的非成品级工具界面</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/8.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>25.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>2.1</td></tr><tr><th>构图层级</th><td>2.0</td></tr><tr><th>字体表现</th><td>1.8</td></tr><tr><th>色彩与材质</th><td>2.1</td></tr><tr><th>细节完成度</th><td>1.7</td></tr><tr><th>基础可用性</th><td>2.3</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [20,30) 档：属于简单工具类页面，是完整的应用使用时长管控工具界面；可见证据是清晰展示了已用时长、设定管控时长、超时状态和操作按钮，工作流完整；未进入更高档是因为整体视觉偏基础默认，无定制化品牌设计和精细打磨，属于默认重度的非成品级工具界面</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[0,10)" data-status="scored">
+  <header>
+    <div>
+      <h2>9.1</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\9.1.png</p>
+    </div>
+    <div class="score"><b>5.00</b><span>/100</span><em>[0,10)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [0,10) 档：属于单功能省电提醒裸工具页面；可见证据为仅包含标题、电量提示文字和单个操作按钮，页面存在大量空白区域，无完整视觉设计系统与额外组件；未进入更高档位因为没有结构化内容、品牌设计或完整产品体系，符合该档位判定标准。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/9.1.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>5.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>0.7</td></tr><tr><th>构图层级</th><td>0.4</td></tr><tr><th>字体表现</th><td>0.0</td></tr><tr><th>色彩与材质</th><td>0.4</td></tr><tr><th>细节完成度</th><td>0.0</td></tr><tr><th>基础可用性</th><td>0.6</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [0,10) 档：属于单功能省电提醒裸工具页面；可见证据为仅包含标题、电量提示文字和单个操作按钮，页面存在大量空白区域，无完整视觉设计系统与额外组件；未进入更高档位因为没有结构化内容、品牌设计或完整产品体系，符合该档位判定标准。</p>
+    
+  </div>
+</section>
+
+</article>
+
+<article class="card" data-bucket="[40,50)" data-status="scored">
+  <header>
+    <div>
+      <h2>9.2</h2>
+      <p>C:\Users\afan\Desktop\Automation-screenshot\qianlong\9.2.png</p>
+    </div>
+    <div class="score"><b>45.00</b><span>/100</span><em>[40,50)</em></div>
+  </header>
+  <div class="rationale">image: 命中 [40,50) 档：属于单卡片简易工具提醒界面，可见证据是功能完整，信息层级清晰，统一蓝色主题清晰展示了剩余电量进度与提示信息，布局连贯，具备基础视觉设计意图。未进更高档因为仅为单个信息卡片，无完整产品组件体系，设计语言通用模板化，无定制化品牌深度，达不到更高档要求。</div>
+  
+<section class="view">
+  <div class="shot"><img src="file:///C:/Users/afan/Desktop/Automation-screenshot/qianlong/9.2.png" alt="image screenshot" loading="lazy"></div>
+  <div class="view-body">
+    <h3>image <span>45.00/100</span></h3>
+    <table class="axis"><tbody><tr><th>视觉冲击 / 原创性</th><td>3.7</td></tr><tr><th>构图层级</th><td>3.7</td></tr><tr><th>字体表现</th><td>3.4</td></tr><tr><th>色彩与材质</th><td>3.9</td></tr><tr><th>细节完成度</th><td>3.0</td></tr><tr><th>基础可用性</th><td>3.9</td></tr></tbody></table>
+    <div class="occ ok">occlusion_overlap_check: always_on · no finding</div>
+    <p>命中 [40,50) 档：属于单卡片简易工具提醒界面，可见证据是功能完整，信息层级清晰，统一蓝色主题清晰展示了剩余电量进度与提示信息，布局连贯，具备基础视觉设计意图。未进更高档因为仅为单个信息卡片，无完整产品组件体系，设计语言通用模板化，无定制化品牌深度，达不到更高档要求。</p>
+    
+  </div>
+</section>
+
+</article>
+
+    </section>
+  </main>
+</body>
+</html>

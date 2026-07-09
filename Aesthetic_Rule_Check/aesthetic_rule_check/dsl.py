@@ -52,7 +52,7 @@ def load_dsl_info(path: Path | None) -> DslInfo:
             required_texts=[],
             data_model={},
             component_count=0,
-            warnings=[f"DSL file not found: {path}"],
+            warnings=[f"DSL 文件不存在：{path}"],
         )
     try:
         raw = path.read_text(encoding="utf-8")
@@ -62,13 +62,13 @@ def load_dsl_info(path: Path | None) -> DslInfo:
             required_texts=[],
             data_model={},
             component_count=0,
-            warnings=[f"DSL file could not be read: {path}: {exc}"],
+            warnings=[f"DSL 文件读取失败：{path}：{exc}"],
         )
     messages = parse_dsl_messages(raw)
     data_model = build_data_model(messages)
     components = collect_components(messages)
     texts = extract_required_texts(components, data_model)
-    warnings = [] if messages else [f"No valid DSL messages found: {path}"]
+    warnings = [] if messages else [f"没有解析到有效 DSL 消息：{path}"]
     return DslInfo(path=path, required_texts=texts, data_model=data_model, component_count=len(components), warnings=warnings)
 
 

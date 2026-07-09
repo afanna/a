@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 
+from .localization import format_value, metric_description, metric_label
 from .models import EvaluationResult, MetricResult
 
 
@@ -142,11 +143,11 @@ def render_batch_html(results: list[EvaluationResult], output_dir: Path) -> str:
 
 
 def render_batch_row(result: EvaluationResult, output_dir: Path) -> str:
-    dimension_text = " / ".join(f"{item.label}:{item.score:.1f}" for item in result.dimensions)
+    dimension_text = " / ".join(f"{item.label}：{item.score:.1f}" for item in result.dimensions)
     report_dir = result.image_path.stem
-    warnings = "; ".join(result.warnings[:3])
+    warnings = "；".join(result.warnings[:3])
     if len(result.warnings) > 3:
-        warnings += f"; +{len(result.warnings) - 3}"
+        warnings += f"；另有 {len(result.warnings) - 3} 条"
     image_src = relative_html_path(result.image_path, output_dir)
     return (
         "<tr>"
@@ -156,7 +157,7 @@ def render_batch_row(result: EvaluationResult, output_dir: Path) -> str:
         f"<td>{html.escape(result.grade)}</td>"
         f"<td>{result.confidence:.2%}</td>"
         f"<td>{html.escape(dimension_text)}</td>"
-        f"<td><a href=\"{html.escape(report_dir)}/report.html\">report.html</a></td>"
+        f"<td><a href=\"{html.escape(report_dir)}/report.html\">查看详情</a></td>"
         f"<td>{html.escape(warnings or '无')}</td>"
         "</tr>"
     )
@@ -176,23 +177,33 @@ def render_dimension(dimension) -> str:
   <h2>{html.escape(dimension.label)}：{dimension.score:.2f}</h2>
   <div class="bar"><div class="fill" style="width:{max(0, min(100, dimension.score)):.2f}%"></div></div>
   <table>
-    <thead><tr><th>指标</th><th>得分</th><th>观测值</th><th>公式</th></tr></thead>
+    <thead><tr><th>指标</th><th>得分</th><th>观测值</th><th>指标说明</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </section>"""
 
 
 def render_metric(metric: MetricResult) -> str:
-    score = "" if metric.score is None else f"{metric.score:.2f}"
-    value = html.escape(json.dumps(metric.value, ensure_ascii=False)) if isinstance(metric.value, (dict, list)) else html.escape(str(metric.value))
+    score = metric_score_text(metric)
+    value = html.escape(format_value(metric.value))
     return (
         "<tr>"
-        f"<td><code>{html.escape(metric.name)}</code></td>"
+        f"<td>{html.escape(metric_label(metric.dimension, metric.name))}</td>"
         f"<td>{score}</td>"
         f"<td>{value}</td>"
-        f"<td>{html.escape(metric.formula)}</td>"
+        f"<td>{html.escape(metric_description(metric.dimension, metric.name))}</td>"
         "</tr>"
     )
+
+
+def metric_score_text(metric: MetricResult) -> str:
+    if metric.score is not None:
+        return f"{metric.score:.2f}"
+    if metric.status == "skipped":
+        return "跳过"
+    if metric.status == "error":
+        return "异常"
+    return "未评分"
 
 
 def image_data_url(path: Path) -> str:
