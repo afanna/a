@@ -53,11 +53,18 @@
     // 每次清理点击后的等待秒数。
     "context_clear_wait": 1,
 
-    // 是否在截图后自动裁切卡片图；开启审美评分时也会自动裁切。
+    // 是否在截图后自动裁切卡片图；开启规则评分或模型审美评分时也会自动裁切。
     "enable_card_crop": false,
+
+    // 是否在裁切完成后执行本地纯规则美学评分。
+    // 开启后输出到 output/reports，不调用任何外部模型。
+    "enable_rule_check": true,
 
     // 卡片裁切配置文件路径，裁切位置变化时优先改这个文件。
     "card_crop_config": "Automation/config/card_crop.json",
+
+    // 纯规则评分配置目录。null 表示使用 Aesthetic_Rule_Check/config。
+    "rule_check_config_dir": null,
 
     // 是否输出卡片裁切调试图，方便看红框位置。
     "card_crop_debug": false,

@@ -47,6 +47,7 @@ python Aesthetic_Rule_Check\main.py --input-dir C:\path\to\inputs --dsl-dir Aest
 输出：
 
 - `Aesthetic_Rule_Check\reports\batch\index.html`
+- `Aesthetic_Rule_Check\reports\batch\report.html`
 - `Aesthetic_Rule_Check\reports\batch\summary.json`
 - `Aesthetic_Rule_Check\reports\batch\q1\result.json`
 - `Aesthetic_Rule_Check\reports\batch\q1\report.html`
@@ -217,6 +218,13 @@ result = evaluate_card(
 ```
 
 返回值是 `EvaluationResult`，可通过 `result.to_dict()` 转成 JSON。
+
+当前 `Automation` 主流程已接入本模块，默认输出位置：
+
+- 卡片图：`output/card/{qid}.png`
+- 批量报告：`output/reports/report.html`
+- 详情报告：`output/reports/{qid}/report.html`
+- 批量结果：`output/reports/summary.json`
 
 ## 新增规则
 

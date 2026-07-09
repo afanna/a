@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import os
 from pathlib import Path
 
 from .models import EvaluationResult, MetricResult
@@ -21,11 +22,14 @@ def write_batch_index(results: list[EvaluationResult], output_dir: Path) -> tupl
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "summary.json"
     index_path = output_dir / "index.html"
+    report_path = output_dir / "report.html"
     summary_path.write_text(
         json.dumps([result.to_dict() for result in results], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    index_path.write_text(render_batch_html(results), encoding="utf-8")
+    html_text = render_batch_html(results, output_dir)
+    index_path.write_text(html_text, encoding="utf-8")
+    report_path.write_text(html_text, encoding="utf-8")
     return summary_path, index_path
 
 
@@ -39,7 +43,7 @@ def render_html(result: EvaluationResult) -> str:
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>Aesthetic Rule Check Report</title>
+  <title>纯规则美学检测报告</title>
   <style>
     :root {{ color-scheme: light; font-family: Arial, "Microsoft YaHei", sans-serif; }}
     body {{ margin: 0; background: #f6f7f9; color: #1f2328; }}
@@ -73,7 +77,7 @@ def render_html(result: EvaluationResult) -> str:
       <p>可信度：{result.confidence:.2%}</p>
     </section>
     <section class="image">
-      <img src="{image_data}" alt="card screenshot">
+      <img src="{image_data}" alt="卡片截图">
     </section>
   </div>
   <div class="grid">
@@ -97,14 +101,14 @@ def render_html(result: EvaluationResult) -> str:
 """
 
 
-def render_batch_html(results: list[EvaluationResult]) -> str:
-    rows = "\n".join(render_batch_row(result) for result in results)
+def render_batch_html(results: list[EvaluationResult], output_dir: Path) -> str:
+    rows = "\n".join(render_batch_row(result, output_dir) for result in results)
     average = sum(result.overall for result in results) / len(results) if results else 0.0
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <title>Aesthetic Rule Check Batch Report</title>
+  <title>纯规则美学批量检测报告</title>
   <style>
     :root {{ color-scheme: light; font-family: Arial, "Microsoft YaHei", sans-serif; }}
     body {{ margin: 0; background: #f6f7f9; color: #1f2328; }}
@@ -117,6 +121,7 @@ def render_batch_html(results: list[EvaluationResult]) -> str:
     th, td {{ border-bottom: 1px solid #edf0f2; padding: 10px; text-align: left; vertical-align: top; font-size: 13px; }}
     th {{ color: #57606a; font-weight: 600; }}
     a {{ color: #2563eb; text-decoration: none; }}
+    img.thumb {{ width: 96px; max-height: 120px; object-fit: contain; border: 1px solid #edf0f2; border-radius: 6px; background: #fff; }}
   </style>
 </head>
 <body>
@@ -127,7 +132,7 @@ def render_batch_html(results: list[EvaluationResult]) -> str:
     <div class="stat"><strong>{average:.2f}</strong><span>平均分</span></div>
   </div>
   <table>
-    <thead><tr><th>图片</th><th>总分</th><th>等级</th><th>可信度</th><th>维度分</th><th>报告</th><th>警告</th></tr></thead>
+    <thead><tr><th>卡片</th><th>图片</th><th>总分</th><th>等级</th><th>可信度</th><th>维度分</th><th>详情报告</th><th>警告</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </main>
@@ -136,14 +141,16 @@ def render_batch_html(results: list[EvaluationResult]) -> str:
 """
 
 
-def render_batch_row(result: EvaluationResult) -> str:
+def render_batch_row(result: EvaluationResult, output_dir: Path) -> str:
     dimension_text = " / ".join(f"{item.label}:{item.score:.1f}" for item in result.dimensions)
     report_dir = result.image_path.stem
     warnings = "; ".join(result.warnings[:3])
     if len(result.warnings) > 3:
         warnings += f"; +{len(result.warnings) - 3}"
+    image_src = relative_html_path(result.image_path, output_dir)
     return (
         "<tr>"
+        f"<td><img class=\"thumb\" src=\"{html.escape(image_src)}\" alt=\"{html.escape(result.image_path.stem)}\"></td>"
         f"<td>{html.escape(result.image_path.name)}</td>"
         f"<td>{result.overall:.2f}</td>"
         f"<td>{html.escape(result.grade)}</td>"
@@ -155,13 +162,21 @@ def render_batch_row(result: EvaluationResult) -> str:
     )
 
 
+def relative_html_path(path: Path, base_dir: Path) -> str:
+    try:
+        relative = os.path.relpath(path.resolve(), base_dir.resolve())
+    except ValueError:
+        return path.resolve().as_posix()
+    return Path(relative).as_posix()
+
+
 def render_dimension(dimension) -> str:
     rows = "\n".join(render_metric(metric) for metric in dimension.metrics)
     return f"""<section>
   <h2>{html.escape(dimension.label)}：{dimension.score:.2f}</h2>
   <div class="bar"><div class="fill" style="width:{max(0, min(100, dimension.score)):.2f}%"></div></div>
   <table>
-    <thead><tr><th>Metric</th><th>Score</th><th>Value</th><th>Formula</th></tr></thead>
+    <thead><tr><th>指标</th><th>得分</th><th>观测值</th><th>公式</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </section>"""

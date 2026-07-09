@@ -163,7 +163,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[AutomationConfig, AestheticsConfig]:
+def make_config(
+    args: argparse.Namespace,
+    *,
+    sn: str | None = None,
+    artifact_namespace: str | None = None,
+) -> tuple[AutomationConfig, AestheticsConfig]:
     runtime_config = load_runtime_config(args.config)
     automation_section = runtime_config.get("automation", {})
     aesthetics_section = runtime_config.get("aesthetics", {})
@@ -178,6 +183,7 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "project_root": value("project_root", DEFAULT_PROJECT_ROOT),
         "hdc": value("hdc", "hdc"),
         "sn": sn if sn is not None else value("sn", None),
+        "artifact_namespace": artifact_namespace,
         "ready_timeout": value("ready_timeout", 60),
         "post_query_wait": value("post_query_wait", 30),
         "query_attempt_timeout": value("query_attempt_timeout", 90),
@@ -194,7 +200,9 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "context_clear_points": value("context_clear_points", ()),
         "context_clear_wait": value("context_clear_wait", 1),
         "enable_card_crop": value("enable_card_crop", False),
+        "enable_rule_check": value("enable_rule_check", True),
         "card_crop_config": value("card_crop_config", DEFAULT_CARD_CROP_CONFIG),
+        "rule_check_config_dir": value("rule_check_config_dir", None),
         "card_crop_debug": value("card_crop_debug", False),
         "debug": value("debug", False),
     }
@@ -309,7 +317,7 @@ def make_aesthetics_config(args: argparse.Namespace, config: dict, project_root:
     )
 
 def coerce_automation_values(values: dict) -> dict:
-    path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config"}
+    path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config", "rule_check_config_dir"}
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
     if "context_clear_points" in coerced:
         coerced["context_clear_points"] = coerce_points(coerced["context_clear_points"])
@@ -394,7 +402,14 @@ def main() -> int:
 
     if args.command == "one":
         result = pipeline.run_one(QueryCase(qid=args.qid, query=args.query))
-        print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
+        print_result(
+            result.qid,
+            result.dsl_path,
+            result.screenshot_path,
+            result.card_path,
+            rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
+            sn=config.safe_sn,
+        )
         return 0
 
     if args.command == "one-from-file":
@@ -403,13 +418,29 @@ def main() -> int:
         if not matches:
             raise SystemExit(f"Query id not found: {args.qid}")
         result = pipeline.run_one(matches[0])
-        print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
+        print_result(
+            result.qid,
+            result.dsl_path,
+            result.screenshot_path,
+            result.card_path,
+            rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
+            sn=config.safe_sn,
+        )
         return 0
 
     if args.command == "batch":
         results = pipeline.run_batch(args.queries)
         for result in results:
-            print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
+            print_result(
+                result.qid,
+                result.dsl_path,
+                result.screenshot_path,
+                result.card_path,
+                rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
+                sn=config.safe_sn,
+            )
+        if config.enable_rule_check:
+            print(f"Rule scoring done, report={config.rule_report_dir / 'report.html'}")
         if aesthetics_config.enable:
             print(f"Aesthetics scoring done, report={config.report_html_path}")
         return 0
@@ -423,7 +454,14 @@ def main() -> int:
     if args.command == "render-dsl-dir":
         results = pipeline.render_dsl_dir(args.dsl_dir)
         for result in results:
-            print_result(result.qid, result.dsl_path, result.screenshot_path, result.card_path, sn=config.safe_sn)
+            print_result(
+                result.qid,
+                result.dsl_path,
+                result.screenshot_path,
+                result.card_path,
+                rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
+                sn=config.safe_sn,
+            )
         return 0
 
     raise AssertionError(args.command)
@@ -442,8 +480,12 @@ def run_crop_card(args: argparse.Namespace) -> int:
     failed = 0
     for image_path in image_files:
         try:
-            output_path = output if output and input_path.is_file() and output.suffix else None
-            output_dir = output.parent if output_path else output or image_path.parent
+            if output and input_path.is_file() and output.suffix:
+                output_path = output
+                output_dir = output.parent
+            else:
+                output_dir = output or config.card_output_dir
+                output_path = output_dir / f"{image_path.stem}.png"
             result = cropper.crop(
                 image_path,
                 output_dir,
@@ -471,7 +513,7 @@ def run_parallel(args: argparse.Namespace, aesthetics_config: AestheticsConfig) 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_sn = {}
         for sn in devices:
-            config, aest_config = make_config(args, sn=sn)
+            config, aest_config = make_config(args, sn=sn, artifact_namespace=sn)
             pipeline = AutomationPipeline(config, aest_config if aesthetics_config.enable else None)
             future = executor.submit(pipeline.run_batch, args.queries)
             future_to_sn[future] = sn
@@ -520,10 +562,19 @@ def resolve_devices(raw_devices: str, hdc: str) -> list[str]:
         raise SystemExit("No HDC devices found. Connect devices or pass --devices SN1,SN2.")
     return unique_devices
 
-def print_result(qid: str, dsl_path: Path, screenshot_path: Path, card_path: Path | None = None, *, sn: str | None = None) -> None:
+def print_result(
+    qid: str,
+    dsl_path: Path,
+    screenshot_path: Path,
+    card_path: Path | None = None,
+    *,
+    rule_report_path: Path | None = None,
+    sn: str | None = None,
+) -> None:
     prefix = f"[{sn}] " if sn else ""
     card = f" CARD={card_path}" if card_path else ""
-    print(f"{prefix}{qid}: DSL={dsl_path} SCREENSHOT={screenshot_path}{card}")
+    rule = f" RULE_REPORT={rule_report_path}" if rule_report_path else ""
+    print(f"{prefix}{qid}: DSL={dsl_path} SCREENSHOT={screenshot_path}{card}{rule}")
 
 if __name__ == "__main__":
     raise SystemExit(main())

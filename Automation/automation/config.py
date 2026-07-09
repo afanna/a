@@ -15,6 +15,7 @@ class AutomationConfig:
     project_root: Path
     hdc: str = "hdc"
     sn: str | None = None
+    artifact_namespace: str | None = None
     remote_dump: str = "/data/local/tmp/current_ui_tree.json"
     remote_snapshot: str = "/data/local/tmp/snapshot_display.jpeg"
     ready_timeout: float = 60
@@ -37,7 +38,9 @@ class AutomationConfig:
     context_clear_points: tuple[tuple[int, int], ...] = ()
     context_clear_wait: float = 1
     enable_card_crop: bool = False
+    enable_rule_check: bool = True
     card_crop_config: Path | None = None
+    rule_check_config_dir: Path | None = None
     card_crop_debug: bool = False
     debug: bool = False
 
@@ -47,14 +50,14 @@ class AutomationConfig:
 
     @property
     def dsl_dir(self) -> Path:
-        if self.safe_sn:
-            return self.project_root / "dsl" / self.safe_sn
+        if self.safe_artifact_namespace:
+            return self.project_root / "dsl" / self.safe_artifact_namespace
         return self.project_root / "dsl"
 
     @property
     def output_dir(self) -> Path:
-        if self.safe_sn:
-            return self.project_root / "output" / self.safe_sn
+        if self.safe_artifact_namespace:
+            return self.project_root / "output" / self.safe_artifact_namespace
         return self.project_root / "output"
 
     @property
@@ -90,11 +93,14 @@ class AutomationConfig:
             return None
         return safe_path_name(self.sn)
 
+    @property
+    def safe_artifact_namespace(self) -> str | None:
+        if not self.artifact_namespace:
+            return None
+        return safe_path_name(self.artifact_namespace)
+
     def artifact_stem(self, qid: str) -> str:
-        safe_qid = safe_path_name(qid)
-        if self.safe_sn:
-            return f"{self.safe_sn}_{safe_qid}"
-        return safe_qid
+        return safe_path_name(qid)
 
     def dsl_path_for(self, qid: str) -> Path:
         return self.dsl_dir / f"{self.artifact_stem(qid)}.jsonl"
@@ -103,25 +109,40 @@ class AutomationConfig:
         return self.output_dir / f"{self.artifact_stem(qid)}.jpeg"
 
     def card_screenshot_path_for(self, qid: str) -> Path:
-        return self.output_dir / f"{self.artifact_stem(qid)}_card.png"
+        return self.card_output_dir / f"{self.artifact_stem(qid)}.png"
+
+    @property
+    def card_output_dir(self) -> Path:
+        return self.output_dir / "card"
 
     @property
     def card_crop_debug_dir(self) -> Path:
-        return self.output_dir / "_debug"
+        return self.card_output_dir / "_debug"
 
     @property
     def default_card_crop_config_path(self) -> Path:
         return self.project_root / "Automation" / "config" / "card_crop.json"
+
+    @property
+    def default_rule_check_config_dir(self) -> Path:
+        return self.project_root / "Aesthetic_Rule_Check" / "config"
+
+    @property
+    def rule_report_dir(self) -> Path:
+        return self.output_dir / "reports"
+
+    def rule_report_dir_for(self, qid: str) -> Path:
+        return self.rule_report_dir / self.artifact_stem(qid)
     
     @property
     def scores_jsonl_path(self) -> Path:
         """审美打分结果jsonl路径"""
-        return self.output_dir / "scores.jsonl"
+        return self.rule_report_dir / "model_scores.jsonl"
     
     @property
     def report_html_path(self) -> Path:
         """审美可视化报告路径"""
-        return self.output_dir / "report.html"
+        return self.rule_report_dir / "model_report.html"
 
 def safe_path_name(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")

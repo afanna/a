@@ -2,7 +2,7 @@
 
 本目录包含 Python 主流程，用于执行：
 
-`query -> DSL 提取 -> ArkTS rawfile 复制 -> 构建安装启动 -> 截图`
+`query -> DSL 提取 -> ArkTS rawfile 复制 -> 构建安装启动 -> 截图 -> 卡片裁切 -> 纯规则美学评分`
 
 当前实现以 Python 为主，保持流程简单、模块化、可维护。
 
@@ -15,6 +15,8 @@
 - `automation/dsl.py`：DSL 关键词搜索、JSON 修复和保存。
 - `automation/arkts.py`：复制 DSL 到 ArkTS rawfile，构建、安装、启动 ArkTS，并截图。
 - `automation/pipeline.py`：单条和批量流程编排。
+- `automation/card_crop.py`：截图中的卡片区域裁切。
+- `Aesthetic_Rule_Check/`：本地纯规则美学评分，不调用外部模型。
 
 ## 命令
 
@@ -36,7 +38,7 @@ python Automation\main.py one-from-file --qid q1
 python Automation\main.py batch
 ```
 
-批量模式会先发送所有 query 并收集 DSL 文件；全部 DSL 收集完成后，再逐条渲染并保存截图。
+批量模式会先发送所有 query 并收集 DSL 文件；全部 DSL 收集完成后，再逐条渲染、截图、裁切卡片并执行本地规则评分。
 
 指定单台设备运行：
 
@@ -79,12 +81,18 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 
 `sample` 当前按 JSON 数组文件校验并复制到 ArkTS rawfile 目录。
 - 截图文件：`output/{qid}.jpeg`
+- 裁切卡片：`output/card/{qid}.png`
+- 纯规则评分报告：`output/reports/report.html`
+- 单条详情报告：`output/reports/{qid}/report.html`
+- 纯规则评分结果：`output/reports/summary.json`
 
-指定 `--sn` 或使用 `parallel` 时，输出会按设备隔离：
+使用 `parallel` 时，输出会按设备隔离：
 
-- DSL 文件：`dsl/{safe_sn}/{safe_sn}_{qid}.jsonl`
+- DSL 文件：`dsl/{safe_sn}/{qid}.jsonl`
 - ArkTS 工作副本：`Automation/.work/devices/{safe_sn}/ArkTs`
-- 截图文件：`output/{safe_sn}/{safe_sn}_{qid}.jpeg`
+- 截图文件：`output/{safe_sn}/{qid}.jpeg`
+- 裁切卡片：`output/{safe_sn}/card/{qid}.png`
+- 纯规则评分报告：`output/{safe_sn}/reports/report.html`
 
 ## 常用命令
 
@@ -92,22 +100,22 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 
 ### 全流程执行
 
-批量发送 query、提取 DSL、构建渲染、截图、裁切、评分：
+批量发送 query、提取 DSL、构建渲染、截图、裁切、纯规则评分：
 
 ```powershell
-python Automation\main.py batch --enable-card-crop --enable-aesthetics
+python Automation\main.py batch
 ```
 
 多设备并行全流程：
 
 ```powershell
-python Automation\main.py parallel --devices auto --enable-card-crop --enable-aesthetics
+python Automation\main.py parallel --devices auto
 ```
 
 指定多设备：
 
 ```powershell
-python Automation\main.py parallel --devices "SN1,SN2" --max-workers 2 --enable-card-crop --enable-aesthetics
+python Automation\main.py parallel --devices "SN1,SN2" --max-workers 2
 ```
 
 ### 仅批量发送 Query 提取 DSL
@@ -144,10 +152,18 @@ python Automation\main.py render-dsl-dir --dsl-dir dsl --enable-card-crop
 python Automation\main.py crop-card --input output --output output
 ```
 
-### 单独批量评分
+### 单独批量模型评分
 
 对 `output` 目录下图片批量评分并生成报告：
 
 ```powershell
 python Automation\main.py aesthetics --input output --output output
+```
+
+### 单独纯规则评分
+
+对已经裁切好的卡片图执行本地纯规则评分：
+
+```powershell
+python Aesthetic_Rule_Check\main.py --input-dir output\card --dsl-dir dsl --out output\reports
 ```
