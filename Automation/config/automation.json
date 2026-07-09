@@ -19,6 +19,7 @@
     "screenshot_retries": 3,
     "screenshot_write_wait": 1,
     "context_clear_enabled": false,
+    "context_clear_points": [],
     "context_clear_x": null,
     "context_clear_y": null,
     "context_clear_wait": 1,

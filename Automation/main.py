@@ -195,6 +195,7 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "screenshot_retries": value("screenshot_retries", 3),
         "screenshot_write_wait": value("screenshot_write_wait", 1),
         "context_clear_enabled": value("context_clear_enabled", False),
+        "context_clear_points": value("context_clear_points", ()),
         "context_clear_x": value("context_clear_x", None),
         "context_clear_y": value("context_clear_y", None),
         "context_clear_wait": value("context_clear_wait", 1),
@@ -258,9 +259,31 @@ def make_aesthetics_config(args: argparse.Namespace, config: dict, project_root:
 def coerce_automation_values(values: dict) -> dict:
     path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config"}
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
+    if "context_clear_points" in coerced:
+        coerced["context_clear_points"] = coerce_points(coerced["context_clear_points"])
     if coerced.get("project_root") == Path("."):
         coerced["project_root"] = DEFAULT_PROJECT_ROOT
     return coerced
+
+def coerce_points(raw_points) -> tuple[tuple[int, int], ...]:
+    if not raw_points:
+        return ()
+    if not isinstance(raw_points, list):
+        raise SystemExit("context_clear_points must be a JSON array")
+
+    points: list[tuple[int, int]] = []
+    for index, point in enumerate(raw_points, 1):
+        if isinstance(point, dict):
+            x = point.get("x")
+            y = point.get("y")
+        elif isinstance(point, (list, tuple)) and len(point) == 2:
+            x, y = point
+        else:
+            raise SystemExit(f"context_clear_points[{index}] must be {{\"x\": int, \"y\": int}} or [x, y]")
+        if x is None or y is None:
+            raise SystemExit(f"context_clear_points[{index}] missing x or y")
+        points.append((int(x), int(y)))
+    return tuple(points)
 
 def main() -> int:
     args = build_parser().parse_args()

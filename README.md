@@ -309,6 +309,7 @@ python Automation\main.py batch --debug
     "build_timeout": 300,
     "screenshot_retries": 3,
     "context_clear_enabled": false,
+    "context_clear_points": [],
     "context_clear_x": null,
     "context_clear_y": null,
     "context_clear_wait": 1,
@@ -334,7 +335,17 @@ python Automation\main.py batch --debug
 
 卡片裁切坐标和阈值单独放在 `Automation/config/card_crop.json`，后续渲染模块位置变化时只改这个 JSON。
 
-如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并填写清理按钮的屏幕绝对坐标。自动化会在 DSL 保存成功后点击该坐标，并等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。
+如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并在 `context_clear_points` 里按顺序填写清理流程所需的屏幕绝对坐标。自动化会在 DSL 保存成功后依次点击这些坐标，每次点击后等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。旧的 `context_clear_x/context_clear_y` 单点配置仍保留兼容。
+
+两次点击的配置示例：
+```json
+"context_clear_enabled": true,
+"context_clear_points": [
+  {"x": 980, "y": 180},
+  {"x": 720, "y": 1320}
+],
+"context_clear_wait": 1
+```
 
 ### 常用环境变量，配置后不用每次传参数
 ```powershell

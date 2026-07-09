@@ -104,18 +104,28 @@ class XiaoyiClient:
     def clear_context(self, qid: str) -> None:
         if not self.config.context_clear_enabled:
             return
-        if self.config.context_clear_x is None or self.config.context_clear_y is None:
+        points = self.config.context_clear_points
+        if not points and self.config.context_clear_x is not None and self.config.context_clear_y is not None:
+            points = ((int(self.config.context_clear_x), int(self.config.context_clear_y)),)
+        if not points:
             self._log.error("[%s] stage=CONTEXT_CLEAR_SKIPPED error=missing coordinates", qid)
             return
 
-        x = int(self.config.context_clear_x)
-        y = int(self.config.context_clear_y)
-        try:
-            self.hdc.ui_input("click", x, y)
-            time.sleep(self.config.context_clear_wait)
-            self._log.info("[%s] stage=CONTEXT_CLEARED x=%d y=%d wait=%.1fs", qid, x, y, self.config.context_clear_wait)
-        except HdcError as exc:
-            self._log.error("[%s] stage=CONTEXT_CLEAR_FAILED x=%d y=%d error=%s", qid, x, y, exc)
+        for index, (x, y) in enumerate(points, 1):
+            try:
+                self.hdc.ui_input("click", x, y)
+                time.sleep(self.config.context_clear_wait)
+                self._log.info(
+                    "[%s] stage=CONTEXT_CLEAR_TAP step=%d/%d x=%d y=%d wait=%.1fs",
+                    qid,
+                    index,
+                    len(points),
+                    x,
+                    y,
+                    self.config.context_clear_wait,
+                )
+            except HdcError as exc:
+                self._log.error("[%s] stage=CONTEXT_CLEAR_FAILED step=%d/%d x=%d y=%d error=%s", qid, index, len(points), x, y, exc)
 
     def _wait_and_extract(self, qid: str, deadline: float) -> DslExtraction:
         last_len = -1

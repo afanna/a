@@ -36,6 +36,7 @@ class AutomationConfig:
     screenshot_retries: int = 3
     screenshot_write_wait: float = 1
     context_clear_enabled: bool = False
+    context_clear_points: tuple[tuple[int, int], ...] = ()
     context_clear_x: int | None = None
     context_clear_y: int | None = None
     context_clear_wait: float = 1
