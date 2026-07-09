@@ -1,45 +1,107 @@
 {
+  // automation：小艺自动化主流程配置。命令行参数优先级高于这里。
   "automation": {
+    // 项目根目录。"." 表示当前仓库根目录，通常不用改。
     "project_root": ".",
+
+    // HDC 可执行文件名或完整路径。hdc 已在 PATH 里时保持 "hdc"。
     "hdc": "hdc",
+
+    // DevEco SDK 和 JDK 路径，用于 ArkTS 编译签名。
     "deveco_sdk_home": "D:/DevEco Studio/sdk",
     "java_home": "D:/DevEco Studio/jbr",
+
+    // HarmonyOS 应用启动信息，需要和 ArkTs 工程保持一致。
     "bundle_name": "yyx.test.test",
     "ability_name": "EntryAbility",
     "module_name": "entry",
+
+    // 等待小艺聊天界面可输入的最长秒数。
     "ready_timeout": 60,
-    "extract_delay": 30,
-    "reply_timeout": 120,
+
+    // 发送 query 后先等待多少秒，再开始滚动和提取 DSL。
     "post_query_wait": 30,
+
+    // 单次 query 尝试提取 DSL 的最长秒数。
     "query_attempt_timeout": 90,
+
+    // 单条 query 最多重试次数；失败后 batch 会跳过该 query 继续后续用例。
     "query_max_attempts": 3,
+
+    // ArkTS 构建最长秒数。
     "build_timeout": 300,
+
+    // 启动渲染应用后等待画面稳定的秒数，再截图。
     "render_wait": 5,
+
+    // 截图文件小于这个字节数会认为截图失败并重试。
     "screenshot_min_bytes": 1000,
+
+    // 截图失败时最多重试次数。
     "screenshot_retries": 3,
+
+    // 设备生成截图后等待写文件完成的秒数。
     "screenshot_write_wait": 1,
+
+    // 是否在每条 query 的 DSL 保存成功后清理小艺上下文。
     "context_clear_enabled": false,
+
+    // 清理上下文需要点击的屏幕绝对坐标，按顺序执行。
+    // 示例：[{ "x": 980, "y": 180 }, { "x": 720, "y": 1320 }]
     "context_clear_points": [],
-    "context_clear_x": null,
-    "context_clear_y": null,
+
+    // 每次清理点击后的等待秒数。
     "context_clear_wait": 1,
+
+    // 是否在截图后自动裁切卡片图；开启审美评分时也会自动裁切。
     "enable_card_crop": false,
+
+    // 卡片裁切配置文件路径，裁切位置变化时优先改这个文件。
     "card_crop_config": "Automation/config/card_crop.json",
+
+    // 是否输出卡片裁切调试图，方便看红框位置。
     "card_crop_debug": false,
+
+    // 是否开启更详细日志。
     "debug": false
   },
+
+  // aesthetics：审美评分配置。只有开启 enable 或传 --enable-aesthetics 时才会调用模型。
   "aesthetics": {
+    // 是否默认开启审美评分。建议日常保持 false，需要时通过命令行开启。
     "enable": false,
+
+    // 豆包/火山 Ark 接口地址。不要把密钥写进代码。
     "base_url": "",
+
+    // API 密钥。推荐用环境变量 AESTHETICS_API_KEY，不建议提交真实密钥。
     "api_key": "",
+
+    // 打分模型名称。
     "model": "doubao-seed-2-0-lite",
+
+    // 输出模式：full 输出完整分析；score-only 只输出分数。
     "output_mode": "full",
+
+    // 单次模型请求超时时间，单位秒。
     "timeout": 360,
+
+    // 模型调用失败后的最大重试次数。
     "max_retries": 3,
+
+    // 模型最多输出 token 数。
     "max_tokens": 1200,
+
+    // 模型温度；0.0 更稳定。
     "temperature": 0.0,
+
+    // 是否启用本地评分缓存。默认关闭，避免复用旧结果影响实验。
     "enable_cache": false,
+
+    // 审美评分并发数。过大可能触发接口限流。
     "max_workers": 2,
+
+    // true：某张图评分失败就终止；false：记录失败并继续。
     "fail_fast": false
   }
 }

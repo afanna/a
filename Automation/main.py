@@ -91,8 +91,6 @@ def add_common_arguments(
     parser.add_argument("--project-root", type=Path, default=default, help=hidden)
     parser.add_argument("--hdc", default=default, help=hidden)
     parser.add_argument("--ready-timeout", type=float, default=default, help=hidden)
-    parser.add_argument("--extract-delay", type=float, default=default, help=hidden)
-    parser.add_argument("--reply-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--post-query-wait", type=float, default=default, help=hidden)
     parser.add_argument("--query-attempt-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--query-max-attempts", type=int, default=default, help=hidden)
@@ -181,8 +179,6 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "hdc": value("hdc", "hdc"),
         "sn": sn if sn is not None else value("sn", None),
         "ready_timeout": value("ready_timeout", 60),
-        "extract_delay": value("extract_delay", 30),
-        "reply_timeout": value("reply_timeout", 120),
         "post_query_wait": value("post_query_wait", 30),
         "query_attempt_timeout": value("query_attempt_timeout", 90),
         "query_max_attempts": value("query_max_attempts", 3),
@@ -196,8 +192,6 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "screenshot_write_wait": value("screenshot_write_wait", 1),
         "context_clear_enabled": value("context_clear_enabled", False),
         "context_clear_points": value("context_clear_points", ()),
-        "context_clear_x": value("context_clear_x", None),
-        "context_clear_y": value("context_clear_y", None),
         "context_clear_wait": value("context_clear_wait", 1),
         "enable_card_crop": value("enable_card_crop", False),
         "card_crop_config": value("card_crop_config", DEFAULT_CARD_CROP_CONFIG),
@@ -220,10 +214,68 @@ def load_runtime_config(path: Path | None) -> dict:
     if path is None or not path.exists():
         return {}
     with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = json.loads(strip_json_comments(f.read()))
     if not isinstance(data, dict):
         raise SystemExit(f"Runtime config must be a JSON object: {path}")
     return data
+
+def strip_json_comments(text: str) -> str:
+    output: list[str] = []
+    index = 0
+    in_string = False
+    escaped = False
+    in_line_comment = False
+    in_block_comment = False
+
+    while index < len(text):
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+
+        if in_line_comment:
+            if char in "\r\n":
+                in_line_comment = False
+                output.append(char)
+            index += 1
+            continue
+
+        if in_block_comment:
+            if char == "*" and next_char == "/":
+                in_block_comment = False
+                index += 2
+            else:
+                index += 1
+            continue
+
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            in_string = True
+            output.append(char)
+            index += 1
+            continue
+
+        if char == "/" and next_char == "/":
+            in_line_comment = True
+            index += 2
+            continue
+        if char == "/" and next_char == "*":
+            in_block_comment = True
+            index += 2
+            continue
+
+        output.append(char)
+        index += 1
+
+    return "".join(output)
 
 def make_aesthetics_config(args: argparse.Namespace, config: dict, project_root: Path) -> AestheticsConfig:
     env_config = AestheticsConfig.from_env(project_root)

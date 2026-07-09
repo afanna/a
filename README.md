@@ -298,7 +298,7 @@ python Automation\main.py batch --debug
 1. **命令行参数** → 2. **`Automation/config/automation.json`** → 3. **环境变量/代码默认值**
 
 ### 运行配置文件
-日常不常改的高级参数统一放在 `Automation/config/automation.json`：
+日常不常改的高级参数统一放在 `Automation/config/automation.json`。这个配置文件支持 `//` 和 `/* ... */` 注释，方便直接在文件里看说明：
 
 ```json
 {
@@ -310,8 +310,6 @@ python Automation\main.py batch --debug
     "screenshot_retries": 3,
     "context_clear_enabled": false,
     "context_clear_points": [],
-    "context_clear_x": null,
-    "context_clear_y": null,
     "context_clear_wait": 1,
     "enable_card_crop": false,
     "card_crop_config": "Automation/config/card_crop.json"
@@ -335,7 +333,7 @@ python Automation\main.py batch --debug
 
 卡片裁切坐标和阈值单独放在 `Automation/config/card_crop.json`，后续渲染模块位置变化时只改这个 JSON。
 
-如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并在 `context_clear_points` 里按顺序填写清理流程所需的屏幕绝对坐标。自动化会在 DSL 保存成功后依次点击这些坐标，每次点击后等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。旧的 `context_clear_x/context_clear_y` 单点配置仍保留兼容。
+如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并在 `context_clear_points` 里按顺序填写清理流程所需的屏幕绝对坐标。自动化会在 DSL 保存成功后依次点击这些坐标，每次点击后等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。
 
 两次点击的配置示例：
 ```json
@@ -381,7 +379,7 @@ A：先手动打开ArkTS项目，执行一次构建，确保能正常生成签�
 A：检查小艺是否已经打开，输入法是否正常弹出，常见原因：
 1. 小艺没有启动或者被后台杀死
 2. 屏幕亮度太低导致UI树识别失败
-3. 网络不好小艺回复超时，可以在 `Automation/config/automation.json` 中加大 `reply_timeout`
+3. 网络不好小艺回复超时，可以在 `Automation/config/automation.json` 中加大 `query_attempt_timeout`
 
 ### Q4：审美打分API调用失败
 A：检查：

@@ -105,8 +105,6 @@ class XiaoyiClient:
         if not self.config.context_clear_enabled:
             return
         points = self.config.context_clear_points
-        if not points and self.config.context_clear_x is not None and self.config.context_clear_y is not None:
-            points = ((int(self.config.context_clear_x), int(self.config.context_clear_y)),)
         if not points:
             self._log.error("[%s] stage=CONTEXT_CLEAR_SKIPPED error=missing coordinates", qid)
             return

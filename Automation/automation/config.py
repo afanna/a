@@ -18,8 +18,6 @@ class AutomationConfig:
     remote_dump: str = "/data/local/tmp/current_ui_tree.json"
     remote_snapshot: str = "/data/local/tmp/snapshot_display.jpeg"
     ready_timeout: float = 60
-    reply_timeout: float = 120
-    extract_delay: float = 30
     post_query_wait: float = 30
     query_attempt_timeout: float = 90
     query_max_attempts: int = 3
@@ -37,8 +35,6 @@ class AutomationConfig:
     screenshot_write_wait: float = 1
     context_clear_enabled: bool = False
     context_clear_points: tuple[tuple[int, int], ...] = ()
-    context_clear_x: int | None = None
-    context_clear_y: int | None = None
     context_clear_wait: float = 1
     enable_card_crop: bool = False
     card_crop_config: Path | None = None
