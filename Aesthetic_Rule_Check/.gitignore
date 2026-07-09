@@ -1,0 +1,6 @@
+reports/
+.cache/
+__pycache__/
+*.pyc
+Docs-main/
+genui_protocol_analysis-master/

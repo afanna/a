@@ -1,0 +1,47 @@
+# 总分维度配置。
+# 所有维度分和总分均为 0~100 分。
+# 总分公式：
+# overall = sum(dimension_score * dimension_weight) / sum(dimension_weight)
+#
+# 修改建议：
+# - 只想改变维度重要性：改 weight。
+# - 只想改变报告展示名称：改 label。
+# - weight 可以不加起来等于 100，程序会自动按权重占比归一化。
+
+dimensions:
+  # 信息完整性：DSL 中要求展示的必要文字，是否被 OCR 在截图中识别到。
+  # 数据来源：DSL + OCR。
+  # 缺失 DSL、DSL 文件不存在、DSL 无必要展示文本时，本维度为 0 分。
+  information:
+    weight: 20
+    label: "信息完整性"
+
+  # 布局美学：留白、边距、间距、密度、重叠、溢出。
+  # 数据来源：截图中的 OCR 文本框和 CV 检测到的视觉元素。
+  layout:
+    weight: 30
+    label: "布局美学"
+
+  # 视觉设计：色彩协调、文字对比、视觉焦点、视觉重心、图文比例、阅读路径、层级。
+  # 数据来源：截图。
+  visual:
+    weight: 35
+    label: "视觉设计"
+
+  # 设计一致性：对齐、字号节奏、组件尺寸、圆角、Padding、图标尺寸、网格、色彩数量简洁度。
+  # 当前全部来自截图检测特征，不读取 DSL 样式字段。
+  # 字体族、图标风格、复杂装饰一致性后续可继续增强。
+  consistency:
+    weight: 15
+    label: "设计一致性"
+
+# 等级阈值，只影响报告展示，不影响分数计算。
+# 例如 overall >= 90 展示 A+；overall >= 70 展示 B。
+grades:
+  S: 95
+  A+: 90
+  A: 85
+  B+: 80
+  B: 70
+  C: 60
+  D: 0

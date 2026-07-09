@@ -1,0 +1,227 @@
+分析一下，这个dsl的生成效果是什么样子的，描述一下。
+[
+  {
+    "version": "v0.9",
+    "createSurface": {
+      "surfaceId": "meetingReminder",
+      "width": 160,
+      "height": 160,
+      "catalogId": "ohos.a2ui.extended.catalog",
+      "styles": {
+        "linearGradient": {
+          "direction": "BottomRight",
+          "colors": [
+            [
+              "#8B6F5C",
+              0
+            ],
+            [
+              "#A0826D",
+              0.5
+            ],
+            [
+              "#B5957E",
+              1
+            ]
+          ]
+        },
+        "borderRadius": 22,
+        "clip": true,
+        "backdropFilter": {
+          "blur": 15
+        }
+      }
+    }
+  },
+  {
+    "version": "v0.9",
+    "updateComponents": {
+      "surfaceId": "meetingReminder",
+      "components": [
+        {
+          "id": "root",
+          "component": "Column",
+          "children": [
+            "headerSection",
+            "timeSection",
+            "actionSection"
+          ],
+          "itemMargin": 8,
+          "styles": {
+            "width": "100%",
+            "height": "100%",
+            "padding": 14,
+            "justifyContent": "spaceBetween"
+          }
+        },
+        {
+          "id": "headerSection",
+          "component": "Column",
+          "children": [
+            "headerLabel",
+            "meetingName"
+          ],
+          "itemMargin": 4,
+          "styles": {
+            "alignItems": "start"
+          }
+        },
+        {
+          "id": "headerLabel",
+          "component": "Text",
+          "content": "下一个日程",
+          "styles": {
+            "fontSize": 11,
+            "fontWeight": 500,
+            "fontColor": "#DDFFFFFF",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "meetingName",
+          "component": "Text",
+          "content": {
+            "path": "/data/meeting/name"
+          },
+          "styles": {
+            "fontSize": 14,
+            "fontWeight": 600,
+            "fontColor": "#FFFFFFFF",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "timeSection",
+          "component": "Column",
+          "children": [
+            "timeRange",
+            "countdownBadge"
+          ],
+          "itemMargin": 8,
+          "styles": {
+            "alignItems": "center",
+            "backgroundColor": "#33FFFFFF",
+            "borderRadius": 16,
+            "padding": {
+              "top": 14,
+              "bottom": 14,
+              "left": 16,
+              "right": 16
+            },
+            "borderWidth": 1,
+            "borderColor": "#44FFFFFF"
+          }
+        },
+        {
+          "id": "timeRange",
+          "component": "Text",
+          "content": {
+            "path": "/data/meeting/timeRange"
+          },
+          "styles": {
+            "fontSize": 28,
+            "fontWeight": 700,
+            "fontColor": "#FFFFFFFF",
+            "maxLines": 1,
+            "textAlign": "center"
+          }
+        },
+        {
+          "id": "countdownBadge",
+          "component": "Text",
+          "content": {
+            "call": "formatString",
+            "args": {
+              "value": "还有 ${/data/meeting/countdown} 分钟后开启"
+            }
+          },
+          "styles": {
+            "fontSize": 12,
+            "fontWeight": 500,
+            "fontColor": "#EEFFFFFF",
+            "maxLines": 1,
+            "textAlign": "center"
+          }
+        },
+        {
+          "id": "actionSection",
+          "component": "Row",
+          "children": [
+            "moonIcon",
+            "actionLabel"
+          ],
+          "itemMargin": 8,
+          "styles": {
+            "alignItems": "center",
+            "justifyContent": "center",
+            "backgroundColor": "#44FFFFFF",
+            "borderRadius": 14,
+            "padding": {
+              "top": 10,
+              "bottom": 10,
+              "left": 16,
+              "right": 16
+            },
+            "borderWidth": 1,
+            "borderColor": "#55FFFFFF",
+            "onClick": [
+              {
+                "call": "clickToIntent",
+                "args": {
+                  "intentName": "SetSettingSwitch",
+                  "params": {
+                    "appBundleName": "com.huawei.hmos.settings",
+                    "itemName": "do_not_disturb",
+                    "switchFlag": 0
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "moonIcon",
+          "component": "Text",
+          "content": "🌙",
+          "styles": {
+            "fontSize": 18,
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "actionLabel",
+          "component": "Text",
+          "content": "专注模式",
+          "styles": {
+            "fontSize": 13,
+            "fontWeight": 600,
+            "fontColor": "#FFFFFFFF",
+            "maxLines": 1
+          }
+        }
+      ]
+    }
+  },
+  {
+    "version": "v0.9",
+    "updateDataModel": {
+      "surfaceId": "meetingReminder",
+      "path": "/",
+      "value": {
+        "data": {
+          "meeting": {
+            "name": "Agent需求评审会",
+            "timeRange": "14:00-15:30",
+            "countdown": 15,
+            "startTime": "2026-06-28 14:00",
+            "endTime": "2026-06-28 15:30",
+            "location": "会议室A"
+          }
+        },
+        "state": {
+          "loading": false
+        }
+      }
+    }
+  }
+]

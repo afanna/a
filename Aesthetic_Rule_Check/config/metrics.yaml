@@ -1,0 +1,230 @@
+# Metric 参数配置。
+#
+# 通用规则：
+# - 每个 metric 输出 0~100 分。
+# - 每个维度内部按 metrics.*.weight 加权平均。
+# - weight <= 0 表示该 metric 不参与维度分，报告会提示未配置正权重。
+# - mean 是理想值；sigma 越大，偏离理想值时扣分越宽松。
+# - cv_k / penalty_k / k 越大，扣分越敏感。
+
+information:
+  # DSL 必要文字与 OCR 文字的相似度阈值。
+  # 0.9 表示非常接近才算完整匹配；调低会减少漏判，但可能把相似文字误判为匹配。
+  text_match_similarity: 0.9
+
+  # 截断判断阈值。相似度在 partial_match_similarity 和 text_match_similarity 之间时，
+  # 会被视为“部分匹配/疑似截断”。
+  partial_match_similarity: 0.55
+
+  # OCR 文本之间相似度超过该值时，认为有重复信息。
+  duplicate_similarity: 0.9
+
+  # OCR 低置信度提示阈值。当前仅用于截断辅助和报告解释，不单独作为扣分项。
+  ocr_low_confidence: 0.6
+
+  metrics:
+    # 信息覆盖率：coverage = matched_required_text_count / required_text_count
+    # score = 100 * coverage
+    coverage:
+      weight: 70
+
+    # 文字截断：truncation_rate = truncated_or_low_conf_text_count / required_text_count
+    # score = 100 * (1 - truncation_rate)
+    truncation:
+      weight: 20
+
+    # 重复文字：duplicate_rate = duplicate_pair_count / ocr_text_count
+    # score = 100 * (1 - duplicate_rate)
+    duplicate:
+      weight: 10
+
+layout:
+  metrics:
+    # 留白比例：whitespace = 1 - occupied_area / card_area
+    # score = Gaussian(whitespace, mean, sigma)
+    # mean 调大：更偏好空一些的卡片；mean 调小：更偏好信息密一些的卡片。
+    whitespace:
+      weight: 25
+      mean: 0.45
+      sigma: 0.16
+
+    # 边距一致性：CV = std(all_edge_distances) / mean(all_edge_distances)
+    # score = 100 * exp(-cv_k * CV)
+    # cv_k 调大：左右/上下边距不一致时扣分更重。
+    margin_consistency:
+      weight: 20
+      cv_k: 3.0
+
+    # 间距节奏：CV = std(vertical_gaps) / mean(vertical_gaps)
+    # score = 100 * exp(-cv_k * CV)
+    # 少于 2 个有效间距样本时跳过，不参与维度加权，避免虚高。
+    spacing_rhythm:
+      weight: 20
+      cv_k: 4.0
+
+    # 元素密度：density = occupied_area / card_area
+    # score = Gaussian(density, mean, sigma)
+    # 和 whitespace 使用同一占用面积，但关注角度不同。
+    density:
+      weight: 15
+      mean: 0.55
+      sigma: 0.16
+
+    # 元素重叠：max_iou = max(IoU(element_i, element_j))
+    # score = max(0, 100 - penalty_k * max_iou)
+    # 少于 2 个元素时跳过。
+    overlap:
+      weight: 10
+      penalty_k: 100
+
+    # 元素溢出：overflow = outside_element_area / total_element_area
+    # score = max(0, 100 - penalty_k * overflow)
+    overflow:
+      weight: 10
+      penalty_k: 100
+
+visual:
+  # 视觉权重用于 visual_focus 和 visual_balance。
+  # text 权重 = area * element_weight * contrast_factor * font_factor
+  # 其它元素权重 = area * element_weight
+  # 这样焦点/重心不只看面积，也会考虑文字对比度、字号和元素类型。
+  visual_weight_contrast_target: 4.5
+  visual_weight_font_reference: 16
+  element_weights:
+    text: 1.2
+    icon: 1.15
+    image: 1.0
+    button: 1.1
+    tag: 0.95
+    component: 0.8
+
+  metrics:
+    # 色彩协调：
+    # color_count_score = Gaussian(dominant_color_count, color_count_mean, color_count_sigma)
+    # distance_score = Gaussian(avg_lab_distance, lab_distance_mean, lab_distance_sigma)
+    # score = mean(color_count_score, distance_score)
+    color_harmony:
+      weight: 20
+      color_count_mean: 4
+      color_count_sigma: 1.6
+      lab_distance_mean: 32
+      lab_distance_sigma: 18
+
+    # 文字对比度：
+    # contrast_ratio = (lighter_luminance + 0.05) / (darker_luminance + 0.05)
+    # score = 100 / (1 + exp(-k * (min_contrast - target)))
+    # target 通常参考 WCAG 普通文字 4.5。
+    # 无 OCR 文本时给 0，避免空白图虚高。
+    contrast:
+      weight: 15
+      target: 4.5
+      k: 1.2
+
+    # 视觉焦点：
+    # focus = max_visual_weight / sum_visual_weight
+    # score = Gaussian(focus, mean, sigma)
+    # mean 太低会鼓励平均无重点；mean 太高会鼓励单元素压制。
+    visual_focus:
+      weight: 20
+      mean: 0.42
+      sigma: 0.18
+
+    # 视觉重心：
+    # offset = distance(weighted_center, geometric_center) / image_size
+    # score = Gaussian(offset, 0, sigma)
+    visual_balance:
+      weight: 15
+      sigma: 0.28
+
+    # 图文比例：
+    # ratio = text_area / occupied_area
+    # score = Gaussian(ratio, mean, sigma)
+    # 无 OCR 文本时给 0。
+    text_image_ratio:
+      weight: 10
+      mean: 0.55
+      sigma: 0.25
+
+    # 阅读路径：
+    # path_norm = sum(distance(text_center_i, text_center_i+1)) / image_diagonal
+    # score = 100 - path_norm * 18 - backtracks * 12
+    # 少量文本时使用保守 fallback；无文本时给 0。
+    reading_flow:
+      weight: 10
+
+    # 层级突出度：
+    # hierarchy = Gini(text_visual_weight)
+    # score = Gaussian(hierarchy, mean, sigma)
+    hierarchy:
+      weight: 10
+      mean: 0.35
+      sigma: 0.16
+
+consistency:
+  metrics:
+    # 对齐一致性：
+    # snap_ratio = count(values with neighbor within eps_px) / count(values)
+    # score = 100 * mean(left_edge_snap_ratio, center_snap_ratio)
+    alignment:
+      weight: 15
+      eps_px: 6
+
+    # 字号节奏：
+    # font_size_level_count = count(round(font_size / 2) * 2)
+    # score = Gaussian(font_size_level_count, levels_mean, levels_sigma)
+    # 无 OCR 文本时给 0。
+    typography_rhythm:
+      weight: 15
+      levels_mean: 3
+      levels_sigma: 1.5
+
+    # 组件尺寸一致性：
+    # CV = std(component_area) / mean(component_area)
+    # score = 100 * exp(-cv_k * CV)
+    # 少于 2 个组件样本时跳过。
+    component_size:
+      weight: 15
+      cv_k: 2.5
+
+    # 圆角一致性：
+    # 先从截图轮廓估算每个非文本元素的 radius，再按 bucket_px 分桶去重。
+    # extra = max(0, unique_radius_count - ideal_unique)
+    # score = 100 * exp(-penalty_k * extra)
+    # 注意：这是纯截图启发式估计，不读取 DSL styles.borderRadius。
+    corner_radius_consistency:
+      weight: 10
+      bucket_px: 2
+      ideal_unique: 2
+      penalty_k: 0.55
+
+    # Padding 一致性：
+    # 对包含文本的按钮/标签等元素，估算 text bbox 到容器 bbox 的 left/right/top/bottom padding。
+    # CV = std(padding_values) / mean(padding_values)
+    # score = 100 * exp(-cv_k * CV)
+    # 没有可估算 padding 的样本时跳过。
+    padding_consistency:
+      weight: 10
+      cv_k: 3.0
+
+    # 图标尺寸一致性：
+    # icon_size = sqrt(icon_area)
+    # CV = std(icon_size) / mean(icon_size)
+    # score = 100 * exp(-cv_k * CV)
+    # 少于 2 个图标样本时跳过。
+    icon_size_consistency:
+      weight: 10
+      cv_k: 3.5
+
+    # 网格一致性：
+    # score = 100 * mean(x_snap_ratio, y_snap_ratio)
+    grid:
+      weight: 15
+      eps_px: 6
+
+    # 风格简洁度：
+    # score = Gaussian(dominant_color_count, color_count_mean, color_count_sigma)
+    # 当前用色彩数量作为装饰复杂度的稳定替代指标。
+    style_simplicity:
+      weight: 10
+      color_count_mean: 4
+      color_count_sigma: 2
