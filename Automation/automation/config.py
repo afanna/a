@@ -35,6 +35,10 @@ class AutomationConfig:
     screenshot_min_bytes: int = 1000
     screenshot_retries: int = 3
     screenshot_write_wait: float = 1
+    context_clear_enabled: bool = False
+    context_clear_x: int | None = None
+    context_clear_y: int | None = None
+    context_clear_wait: float = 1
     enable_card_crop: bool = False
     card_crop_config: Path | None = None
     card_crop_debug: bool = False

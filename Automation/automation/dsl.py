@@ -37,14 +37,15 @@ class DslExtractor:
         best_source = ""
         best_records: list[dict] = []
         strategy1_complete: DslExtraction | None = None
-        has_genui_scope = has_genui_marker(tree)
-
         for source in iter_single_dsl_nodes(tree, self.keywords):
             records = repair_and_extract(source)
             if is_complete_dsl(records) and strategy1_complete is None:
                 strategy1_complete = DslExtraction(qid=qid, records=records, source_text=source)
             if len(records) > len(best_records):
                 best_source, best_records = source, records
+
+        if strategy1_complete is not None:
+            return strategy1_complete
 
         if has_open_genui_without_cardspec(tree):
             return DslExtraction(qid=qid, records=[], source_text=best_source)
@@ -62,9 +63,6 @@ class DslExtractor:
                 return DslExtraction(qid=qid, records=records, source_text=source)
             if len(records) > len(best_records):
                 best_source, best_records = source, records
-
-        if strategy1_complete is not None and not has_genui_scope:
-            return strategy1_complete
 
         return DslExtraction(qid=qid, records=[], source_text=best_source)
 
@@ -144,10 +142,6 @@ def iter_genui_cardspec_blocks(tree: UiTree):
         if end_position is None or end_position <= marker_position + 1:
             continue
         yield "\n".join(text for _, text in text_nodes[marker_position + 1 : end_position])
-
-
-def has_genui_marker(tree: UiTree) -> bool:
-    return any(node.text.strip().lower() == GENUI_MARKER for node in tree.nodes)
 
 
 def has_open_genui_without_cardspec(tree: UiTree) -> bool:

@@ -158,6 +158,19 @@ class UiTree:
         joined = "\n".join(texts)
         busy_terms = ("正在使用工具", "正在思考", "生成中", "执行中", "处理中")
         busy = any(term in joined for term in busy_terms)
+        lower_joined = joined.lower()
+        busy_terms = (
+            "\u6b63\u5728\u4f7f\u7528\u5de5\u5177",
+            "\u6b63\u5728\u601d\u8003",
+            "\u751f\u6210\u4e2d",
+            "\u6267\u884c\u4e2d",
+            "\u5904\u7406\u4e2d",
+            "generating",
+            "thinking",
+            "processing",
+            "running",
+        )
+        busy = any(term in lower_joined for term in busy_terms)
         has_dsl = any(keyword in joined for keyword in dsl_keywords)
         return busy, has_dsl, len(joined)
 

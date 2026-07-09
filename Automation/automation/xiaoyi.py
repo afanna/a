@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import AutomationConfig
-from .dsl import DSL_KEYWORDS, DslExtraction, DslExtractor
+from .dsl import DSL_KEYWORDS, DslExtraction, DslExtractor, is_complete_dsl
 from .hdc import HdcClient, HdcError
 from .logger import get_logger
 from .ui_tree import UiTree
@@ -71,6 +71,7 @@ class XiaoyiClient:
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
                 self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
+                self.clear_context(qid)
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
             except (TimeoutError, HdcError) as exc:
                 last_error = exc
@@ -100,6 +101,22 @@ class XiaoyiClient:
         self.hdc.ui_input("keyEvent", 2072, 2017, check=False)
         self.hdc.ui_input("keyEvent", 2055, check=False)
 
+    def clear_context(self, qid: str) -> None:
+        if not self.config.context_clear_enabled:
+            return
+        if self.config.context_clear_x is None or self.config.context_clear_y is None:
+            self._log.error("[%s] stage=CONTEXT_CLEAR_SKIPPED error=missing coordinates", qid)
+            return
+
+        x = int(self.config.context_clear_x)
+        y = int(self.config.context_clear_y)
+        try:
+            self.hdc.ui_input("click", x, y)
+            time.sleep(self.config.context_clear_wait)
+            self._log.info("[%s] stage=CONTEXT_CLEARED x=%d y=%d wait=%.1fs", qid, x, y, self.config.context_clear_wait)
+        except HdcError as exc:
+            self._log.error("[%s] stage=CONTEXT_CLEAR_FAILED x=%d y=%d error=%s", qid, x, y, exc)
+
     def _wait_and_extract(self, qid: str, deadline: float) -> DslExtraction:
         last_len = -1
         stable_count = 0
@@ -115,34 +132,39 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            if has_dsl and not busy and stable_count >= 1:
+            should_extract = has_dsl and (not busy or stable_count >= 2)
+            if should_extract:
                 extraction = self.extractor.extract_from_tree(qid, tree)
-                if self._is_new_extraction(extraction):
+                if self._is_complete_new_extraction(extraction):
                     return extraction
             time.sleep(self.config.poll_interval)
 
         if latest_tree is not None:
             extraction = self.extractor.extract_from_tree(qid, latest_tree)
-            if self._is_new_extraction(extraction):
+            if self._is_complete_new_extraction(extraction):
                 return extraction
-        return self._scroll_scan_for_dsl(qid, deadline)
+        return self._scroll_scan_for_dsl(qid)
 
-    def _scroll_scan_for_dsl(self, qid: str, deadline: float) -> DslExtraction:
+    def _scroll_scan_for_dsl(self, qid: str) -> DslExtraction:
+        deadline = time.monotonic() + self.config.scroll_limit * self.config.poll_interval
         for _ in range(self.config.scroll_limit):
             if time.monotonic() > deadline:
                 break
             self._scroll_down(check=False)
             tree = self.dump_tree()
             extraction = self.extractor.extract_from_tree(qid, tree)
-            if self._is_new_extraction(extraction):
+            if self._is_complete_new_extraction(extraction):
                 return extraction
+            time.sleep(self.config.poll_interval)
         raise TimeoutError(f"DSL not found for query {qid}")
 
     def _scroll_down(self, check: bool = True) -> None:
         self.hdc.ui_input("swipe", 600, 1800, 600, 500, 600, check=check)
 
-    def _is_new_extraction(self, extraction: DslExtraction) -> bool:
+    def _is_complete_new_extraction(self, extraction: DslExtraction) -> bool:
         if not extraction.found:
+            return False
+        if not is_complete_dsl(extraction.records):
             return False
         fingerprint = dsl_fingerprint(extraction)
         return fingerprint != self.last_dsl_fingerprint

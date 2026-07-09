@@ -308,6 +308,10 @@ python Automation\main.py batch --debug
     "render_wait": 5,
     "build_timeout": 300,
     "screenshot_retries": 3,
+    "context_clear_enabled": false,
+    "context_clear_x": null,
+    "context_clear_y": null,
+    "context_clear_wait": 1,
     "enable_card_crop": false,
     "card_crop_config": "Automation/config/card_crop.json"
   },
@@ -329,6 +333,8 @@ python Automation\main.py batch --debug
 ```
 
 卡片裁切坐标和阈值单独放在 `Automation/config/card_crop.json`，后续渲染模块位置变化时只改这个 JSON。
+
+如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并填写清理按钮的屏幕绝对坐标。自动化会在 DSL 保存成功后点击该坐标，并等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。
 
 ### 常用环境变量，配置后不用每次传参数
 ```powershell

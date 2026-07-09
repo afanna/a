@@ -2,7 +2,9 @@
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -13,7 +15,47 @@ from automation.config import AutomationConfig
 from automation.hdc import HdcClient, HdcError
 from automation.pipeline import AutomationPipeline
 from automation.queries import QueryCase, load_queries
-from visual_aesthetics.config import AestheticsConfig
+
+try:
+    from visual_aesthetics.config import AestheticsConfig
+except ModuleNotFoundError as exc:
+    if exc.name != "visual_aesthetics":
+        raise
+
+    @dataclass(frozen=True)
+    class AestheticsConfig:
+        enable: bool = False
+        base_url: str = ""
+        api_key: str = ""
+        model: str = "doubao-seed-2-0-lite"
+        output_mode: str = "full"
+        timeout: int = 360
+        max_retries: int = 3
+        max_tokens: int = 1200
+        temperature: float = 0.0
+        enable_cache: bool = False
+        cache_dir: Path = Path(".")
+        max_workers: int = 2
+        fail_fast: bool = False
+
+        @classmethod
+        def from_env(cls, project_root: Path | None = None) -> "AestheticsConfig":
+            root = project_root or DEFAULT_PROJECT_ROOT
+            cache_dir = root / "Automation" / ".work" / "aesthetics_cache"
+            return cls(
+                base_url=os.environ.get("AESTHETICS_BASE_URL", ""),
+                api_key=os.environ.get("AESTHETICS_API_KEY", ""),
+                model=os.environ.get("AESTHETICS_MODEL", "doubao-seed-2-0-lite"),
+                output_mode=os.environ.get("AESTHETICS_OUTPUT_MODE", "full"),
+                timeout=int(os.environ.get("AESTHETICS_TIMEOUT", "360")),
+                max_retries=int(os.environ.get("AESTHETICS_MAX_RETRIES", "3")),
+                max_tokens=int(os.environ.get("AESTHETICS_MAX_TOKENS", "1200")),
+                temperature=float(os.environ.get("AESTHETICS_TEMPERATURE", "0.0")),
+                enable_cache=os.environ.get("AESTHETICS_ENABLE_CACHE", "false").lower() == "true",
+                cache_dir=Path(os.environ.get("AESTHETICS_CACHE_DIR", str(cache_dir))),
+                max_workers=int(os.environ.get("AESTHETICS_MAX_WORKERS", "2")),
+                fail_fast=os.environ.get("AESTHETICS_FAIL_FAST", "false").lower() == "true",
+            )
 
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_AUTOMATION_CONFIG = DEFAULT_PROJECT_ROOT / "Automation" / "config" / "automation.json"
@@ -152,6 +194,10 @@ def make_config(args: argparse.Namespace, *, sn: str | None = None) -> tuple[Aut
         "screenshot_min_bytes": value("screenshot_min_bytes", 1000),
         "screenshot_retries": value("screenshot_retries", 3),
         "screenshot_write_wait": value("screenshot_write_wait", 1),
+        "context_clear_enabled": value("context_clear_enabled", False),
+        "context_clear_x": value("context_clear_x", None),
+        "context_clear_y": value("context_clear_y", None),
+        "context_clear_wait": value("context_clear_wait", 1),
         "enable_card_crop": value("enable_card_crop", False),
         "card_crop_config": value("card_crop_config", DEFAULT_CARD_CROP_CONFIG),
         "card_crop_debug": value("card_crop_debug", False),
