@@ -1,260 +1,453 @@
 # aesthetic-v4 VLM Judge Package
 
-这个文件夹把当前 aesthetic-v4 评审功能打包成一个可复跑流程：
+这个包用于把本地 HTML 渲染成截图，再用 aesthetic-v4 VLM Judge 输出结构化设计质量评价。默认输出 clean JSON；需要浏览器报告时可以显式开启 HTML 输出。
+
+## 路径约定
+
+不要复制其他人的本地路径。先在当前机器上进入这个包所在目录，并设置包根目录：
+
+```bash
+cd /ABSOLUTE/PATH/TO/aesthetic-v4-vlm-judge-package-20260624
+PACKAGE_ROOT="$(pwd -P)"
+```
+
+`PACKAGE_ROOT` 展开后就是当前机器上的包根目录绝对路径。后续命令都使用它。
+
+## 输入
+
+真实输入必须是当前机器上的绝对路径。支持两类输入：
+
+- HTML 文件或 HTML 目录。
+- PNG/JPG 截图图片。
 
 ```text
-HTML input -> canonical first-view screenshot -> Pangu Claude 4.7 VLM judge -> clean JSON/CSV/HTML/manual QC report
+/ABSOLUTE/PATH/TO/YOUR_HTML_FILE_OR_DIRECTORY
+/ABSOLUTE/PATH/TO/YOUR_SCREENSHOT.png
 ```
 
-## 快速运行
+包内自测样例：
 
 ```bash
-cd pipeline
-npm install
-python3 -m pip install -r requirements.txt
-npm run run:mock
-open ../runs/aesthetic-v4/report.html
+"$PACKAGE_ROOT/input_html/sample_aesthetic_v4_dashboard.html"
 ```
 
-`run:mock` 只验证流程，不代表真实美学评分。
+HTML 输入会渲染桌面端和移动端长截图。图片输入会跳过 HTML 渲染，直接按单图评分。输入目录会递归扫描 `.html` / `.htm`，并忽略 `.DS_Store`、`._*` 和 `.zip`。
 
-## 截图策略
+可选 sidecar 元数据：
 
-默认策略是直接打开 HTML，只渲染一个 canonical viewport 的首屏截图后交给 VLM judge。mobile 首屏是 `390x844 @2x`，输出图约 `780x1688`；desktop 首屏是 `1440x900`。这是日常快评路径。
-
-长图是显式开关，默认关闭。需要验证滚动完整性、底部导航真实遮挡、长页面内容延续时，再设置 `AESTHETIC_V4_SCREENSHOT_MODE=fullpage`。full-page 截图会先把 viewport 高度扩到文档截图高度再截完整内容，避免 fixed/sticky footer 被传统 fullPage 截图冻结在首屏位置造成假遮挡。
-
-默认参数：
-
-```bash
-AESTHETIC_V4_SCREENSHOT_MODE=first_view
-AESTHETIC_V4_FULLPAGE_MAX_HEIGHT=12000
-AESTHETIC_V4_MANIFEST_VIEWPORT=mobile
-AESTHETIC_V4_VIEWPORT=mobile
-AESTHETIC_V4_VIEWPORT_SELECTION=auto
+```text
+/ABSOLUTE/PATH/TO/sample.meta.json
+/ABSOLUTE/PATH/TO/metadata.json
+/ABSOLUTE/PATH/TO/query_instruction.json
 ```
 
-## 质检开关
+sidecar 可包含 `query`、`query_text`、`prompt`、`instruction`、`task`、`description`、`target_viewport`、`ui_type` 等字段。
+
+## 配置
+
+复制配置模板：
 
 ```bash
-AESTHETIC_V4_ADAPTIVE_VIEWPORTS=off
-AESTHETIC_V4_SCORE_BREAKDOWN=on
-AESTHETIC_V4_DESIGNER_REVIEW=off
+cp "$PACKAGE_ROOT/config/aesthetic-v4.env.example" "$PACKAGE_ROOT/config/aesthetic-v4.env"
 ```
 
-- `adaptive_viewports=off`: 只跑默认或指定 viewport。
-- `adaptive_viewports=on`: 跑已渲染的 desktop+mobile，页面分取低分。
-- `adaptive_viewports=auto`: 先跑 canonical viewport；响应式风险、低置信、临界分数、遮挡风险或正式报告模式下补跑另一端。
-- `score_breakdown=on`: 默认打开，输出总分、六轴、固定权重、weighted contribution 和遮挡影响；`off` 只影响报告展示，不改变内部评分。
-- `designer_review=on`: 额外输出 pros/cons/suggestions；`off` 不输出长评，也不改变分数。
+在本机配置文件里填写私有 key：
 
-`occlusion_overlap_check` 固定为 `always_on`，不提供关闭开关。遮挡/重叠问题不会动态改权重，而是降低对应 `axis_scores`，并输出 `occlusion_findings` 和 `occlusion_score_impact`。相关轴按 severity 设上限：minor 最高 6、moderate 最高 4、severe 最高 2、blocking 为 0。
-
-如果需要复跑长图口径：
-
-```bash
-npm run run:model:fullpage
+```text
+$PACKAGE_ROOT/config/aesthetic-v4.env
 ```
 
-默认模型输出模式是 `PANGU_JUDGE_OUTPUT_MODE=full`，用于正式质检 JSON：输出六轴、固定权重、遮挡证据和 rationale。
+模型入口使用 Pangu OpenAI-compatible API。第一次使用时只需要在 `config/aesthetic-v4.env` 里填好 `PANGU_API_KEY`；之后传入 HTML 或 PNG/JPG 图片，就可以直接输出 clean JSON。
 
-`score-only` 只用于速度测试：
+默认 Pangu 配置通过 `PANGU_JUDGE_MODEL` 切换模型：
 
-```bash
-npm run run:model:score-only
+```text
+GPT 5.5: PANGU_JUDGE_MODEL=gpt-5.5
+Gemini 3.5: PANGU_JUDGE_MODEL=gemini-3.5-flash
+Claude 4.7: PANGU_JUDGE_MODEL=claude-opus-4-7-thinking
 ```
 
-这个模式只要求模型输出 `{score}`，不作为最终人工质检 JSON。
+## API 调用方式
 
-`claude-opus-4-7-thinking` 是当前默认交付模型，默认从 Pangu OpenAI-compatible 网关调用。`PANGU_JUDGE_PROMPT_VERSION=aesthetic-v4` 是公开稳定入口，内部已收敛到当前 benchmark 校准版 prompt。需要和 Pangu `gpt-5.5` 对比时，用同一输入和同一截图口径另跑一份：
+这里的 API 指 Pangu 模型网关 API，不是需要单独启动的 HTTP 服务。本包对外调用入口是 `pipeline/run_aesthetic_v4.sh`；脚本内部会调用 Pangu OpenAI-compatible chat completions API。
 
-```bash
-AESTHETIC_V4_MODEL_PROVIDER=pangu PANGU_JUDGE_MODEL=gpt-5.5 AESTHETIC_V4_RUN_DIR=../runs/aesthetic-v4-gpt55 bash run_aesthetic_v4.sh ../input_html
-python3 scripts/compare_aesthetic_v4_runs.py \
-  --left ../runs/aesthetic-v4-gpt55/scores.jsonl \
-  --right ../runs/aesthetic-v4/scores.jsonl \
-  --left-label pangu_gpt55 \
-  --right-label pangu_claude47 \
-  --out-csv ../acceptance/model_comparison.csv \
-  --metrics-json ../acceptance/model_comparison.metrics.json \
-  --report-html ../acceptance/model_comparison.html
-```
+只需要配置一次：
 
-`run:surface-policy` 是显式实验入口，会先跑首屏再跑长图并合并结果；它不是 aesthetic-v4 的默认主路径。
-
-## 配置真实模型
-
-```bash
-cp ../config/aesthetic-v4.env.example ../config/aesthetic-v4.env
-```
-
-在 `../config/aesthetic-v4.env` 填入本机私有值：
-
-```bash
+```text
 PANGU_BASE_URL=http://43.139.21.243:4000
-PANGU_API_KEY=...
+PANGU_API_KEY=
 PANGU_JUDGE_MODEL=claude-opus-4-7-thinking
-PANGU_JUDGE_PROMPT_VERSION=aesthetic-v4
-PANGU_JUDGE_OUTPUT_MODE=full
-AESTHETIC_V4_MODEL_PROVIDER=pangu
 ```
 
-显式传入的 shell 环境变量优先于 `../config/aesthetic-v4.env`；本机 env 文件只用于补默认值和保存私有 key。比如临时速度测试可以直接设置 `PANGU_JUDGE_OUTPUT_MODE=score-only`，不会被 env 文件里的 `full` 覆盖。
+同事正常使用时不需要直接调用 Pangu 脚本，也不需要手写 `curl`。把 key 和模型写进 `config/aesthetic-v4.env` 后，运行下面的主命令即可。
 
-然后运行：
-
-```bash
-npm run run:model
-open ../runs/aesthetic-v4/report.html
-```
-
-## 输入 HTML
-
-默认读取：
+默认质量配置：
 
 ```text
-input_html/
+AESTHETIC_V4_SCREENSHOT_MODE=fullpage
+AESTHETIC_V4_MANIFEST_VIEWPORT=all
+AESTHETIC_V4_VIEWPORT=all
+AESTHETIC_V4_ADAPTIVE_VIEWPORTS=on
+AESTHETIC_V4_SCORE_BREAKDOWN=on
+AESTHETIC_V4_DESIGNER_REVIEW=on
+AESTHETIC_V4_OCCLUSION_OVERLAP_CHECK=always_on
+AESTHETIC_V4_OUTPUT_JSON=on
+AESTHETIC_V4_OUTPUT_HTML=off
 ```
 
-也可以指定其他目录：
+## 执行流程
+
+一次运行会按顺序完成：
+
+1. 如果输入是 HTML 文件或目录，生成 `manifest.jsonl`，再用 Playwright 渲染桌面端和移动端长截图。
+2. 如果输入是 PNG/JPG 图片，跳过 HTML 渲染，直接把图片送入评分。
+3. 调用 Pangu API，得到 aesthetic-v4 评分、6 轴分数、设计师评价和遮挡检测。
+4. HTML 输入会聚合 mobile/web 结果，默认取较低视口作为保守总分；图片输入按单图输出。
+5. 导出 clean JSON 到 `outputs/json`。
+6. 自动校验 clean JSON 结构。
+7. 如果 `AESTHETIC_V4_OUTPUT_HTML=on`，额外生成 HTML 报告。
+
+## 安装依赖
 
 ```bash
-bash pipeline/run_aesthetic_v4.sh /path/to/html_dir
+cd "$PACKAGE_ROOT/pipeline"
+npm install
+python3 -m pip install -r "$PACKAGE_ROOT/pipeline/requirements.txt"
 ```
 
-或者单文件：
+## 运行
+
+运行真实模型，输入 HTML 文件或 HTML 目录：
 
 ```bash
-bash pipeline/run_aesthetic_v4.sh /path/to/index.html
+cd "$PACKAGE_ROOT"
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+/ABSOLUTE/PATH/TO/YOUR_HTML_FILE_OR_DIRECTORY
 ```
 
-## 输出文件
-
-默认输出到：
-
-```text
-runs/aesthetic-v4/
-```
-
-关键文件：
-
-- `manifest.jsonl`: HTML 输入清单
-- `screenshots/render_manifest.jsonl`: 默认首屏截图清单；fullpage 模式下是自然长图截图清单
-- `scores.jsonl`: 结构化 VLM judge 结果
-- `scores.csv`: 表格版结果
-- `report.html`: 可打开的本地报告
-- `report.summary.json`: 统计摘要
-- `outputs/json/*.json`: 每个 HTML 一个干净 JSON，给下游和人工质检使用
-- `manual_qc/index.html`: HTML、截图、JSON、遮挡证据聚合质检页
-- `acceptance/benchmark_*`: 基准集验收 metrics / CSV / HTML
-- `acceptance/occlusion_*`: 遮挡验收报告和 JSON
-
-正式交付的干净 JSON 由下面命令生成：
+运行真实模型，输入 PNG/JPG 图片：
 
 ```bash
-npm run export:json
-npm run validate:json
-npm run manual-qc
+cd "$PACKAGE_ROOT"
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+/ABSOLUTE/PATH/TO/YOUR_SCREENSHOT.png
 ```
 
-干净 JSON 只保留百分制对外分数：
-
-- 必须包含 `aesthetic_rubric`
-- `score.score_100` 是最终分
-- `score.axis_breakdown[].axis_score_100`
-- `score.axis_breakdown[].weight`
-- `score.axis_breakdown[].weighted_contribution_100`
-- `score.score_100 = sum(weighted_contribution_100)`
-- `occlusion.detected/status/types/findings/affected_axes/score_impact`
-
-不输出 `score_8`、重复 `rationale`、`weighted_score_from_axis_scores`、`occlusion_weighted_loss_from_max` 等内部旧字段。
-
-## 验收命令
-
-代码和包结构：
+指定模型：
 
 ```bash
-python3 tools/validate_package.py
-python3 -m py_compile pipeline/scripts/*.py
-node --check pipeline/scripts/render_screenshots.mjs
-cd pipeline && npm run run:mock && npm run export:json && npm run validate:json && npm run manual-qc
-```
-
-Pangu Claude 4.7 单样本 smoke：
-
-```bash
-cd pipeline
-source ../config/aesthetic-v4.env
-AESTHETIC_V4_MODEL_PROVIDER=pangu AESTHETIC_V4_RUN_DIR=../runs/smoke_pangu_claude47 AESTHETIC_V4_MANIFEST_VIEWPORT=mobile AESTHETIC_V4_VIEWPORT=mobile bash run_aesthetic_v4.sh ../input_html/sample_aesthetic_v4_dashboard.html
-```
-
-基准集验收：
-
-```bash
-cd pipeline
-source ../config/aesthetic-v4.env
-AESTHETIC_V4_MODEL_PROVIDER=pangu \
-PANGU_JUDGE_MODEL=claude-opus-4-7-thinking \
-PANGU_JUDGE_PROMPT_VERSION=aesthetic-v4 \
-PANGU_JUDGE_OUTPUT_MODE=full \
-AESTHETIC_V4_RUN_DIR=../acceptance/benchmark_claude47_final_default \
-AESTHETIC_V4_MANIFEST_VIEWPORT=all \
-AESTHETIC_V4_VIEWPORT=all \
-AESTHETIC_V4_VIEWPORT_SELECTION=auto \
-AESTHETIC_V4_ADAPTIVE_VIEWPORTS=off \
-bash run_aesthetic_v4.sh "/Volumes/TU820/aesthetic/基准集-bobo 确认版"
-
-python3 scripts/evaluate_aesthetic_v4_benchmark.py \
-  --scores ../acceptance/benchmark_claude47_final_default/scores.jsonl \
-  --out-csv ../acceptance/benchmark_claude47_final_default/details.csv \
-  --metrics-json ../acceptance/benchmark_claude47_final_default/metrics.json \
-  --report-html ../acceptance/benchmark_claude47_final_default/benchmark_report.html \
-  --target 0.82
-
-AESTHETIC_V4_MODEL_PROVIDER=pangu \
+cd "$PACKAGE_ROOT"
 PANGU_JUDGE_MODEL=gpt-5.5 \
-AESTHETIC_V4_RUN_DIR=../acceptance/benchmark_gpt55 \
-AESTHETIC_V4_MANIFEST_VIEWPORT=all \
-AESTHETIC_V4_VIEWPORT=all \
-AESTHETIC_V4_VIEWPORT_SELECTION=auto \
-AESTHETIC_V4_ADAPTIVE_VIEWPORTS=off \
-bash run_aesthetic_v4.sh "/Volumes/TU820/aesthetic/基准集-bobo 确认版"
-python3 scripts/evaluate_aesthetic_v4_benchmark.py --scores ../acceptance/benchmark_gpt55/scores.jsonl --out-csv ../acceptance/benchmark_gpt55/details.csv --metrics-json ../acceptance/benchmark_gpt55/metrics.json --report-html ../acceptance/benchmark_gpt55/benchmark_report.html
-
-python3 scripts/compare_aesthetic_v4_runs.py --left ../acceptance/benchmark_gpt55/scores.jsonl --right ../acceptance/benchmark_claude47_final_default/scores.jsonl --left-label pangu_gpt55 --right-label pangu_claude47 --out-csv ../acceptance/model_comparison.csv --metrics-json ../acceptance/model_comparison.metrics.json --report-html ../acceptance/model_comparison.html
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+/ABSOLUTE/PATH/TO/YOUR_HTML_FILE_OR_DIRECTORY
 ```
 
-验收阈值：single-call Pangu Claude 4.7 首屏结果的 exact bucket accuracy、low-score min recall、min binary accuracy 都需要 `>= 82%`。当前 `acceptance/benchmark_claude47_final_default/metrics.json` 结果为 exact bucket accuracy `83.33%`、low-score min recall `96.43%`、min binary accuracy `95.83%`。Pangu gpt-5.5 作为对照输出分数、bucket、遮挡命中和差异分析。
-
-注意：bobo 确认版基准的人工标签混合 desktop/mobile 目标面。验收命令会渲染 desktop+mobile 首屏，但每个 HTML 只选择一个 canonical viewport 评分，`adaptive_viewports=off`，不是双端取低分。
-
-## 包内结构
-
-- `config/aesthetic-v4.env.example`: 模型配置模板
-- `input_html/`: 示例 HTML 输入
-- `pipeline/run_aesthetic_v4.sh`: 一键流程
-- `pipeline/scripts/`: 渲染、打分、报告脚本
-- `tools/build_handoff_zip.py`: 交付 zip 构建脚本，会排除本地私有 env、缓存和依赖目录
-- `docs/AESTHETIC_V4_WORKFLOW.md`: 输入、模型、输出、聚合口径
-
-## 打包
+只检查流程，不调用真实模型：
 
 ```bash
-python3 tools/build_handoff_zip.py
+cd "$PACKAGE_ROOT"
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+--mock \
+"$PACKAGE_ROOT/input_html/sample_aesthetic_v4_dashboard.html"
 ```
 
-默认输出到 `/Volumes/TU820/aesthetic/outputs/aesthetic-v4-pangu-claude47-handoff-YYYYMMDD.zip`。脚本会跳过 `config/aesthetic-v4.env`，zip 内只包含 `config/aesthetic-v4.env.example`。
+## 默认 JSON 输出
 
-## 评分口径
+默认 clean JSON 输出：
 
-aesthetic-v4 是 VLM Judge：大模型看渲染截图，并按六轴 rubric、分档规则、ZERO_DEFECT 结构化硬缺陷和设计师评审口吻输出分数与解释。遮挡/重叠不会把六轴无条件全清零；相关 affected_axes 打到 0 或极低，最终分由固定权重加权得到。
+```text
+$PACKAGE_ROOT/outputs/json/index.json
+$PACKAGE_ROOT/outputs/json/*.json
+```
 
-遮挡类型固定归一为：
+内部运行文件：
 
-- `text_text`: 文字和文字互相重叠
-- `text_graphic`: 文字被图片、图标、图形、图表遮挡
-- `control_nav`: 按钮、输入框、导航、底部栏遮挡核心内容
-- `layer_zindex`: 浮层、卡片、图层顺序导致核心内容遮挡
-- `clipping_crop`: 裁切、溢出、截断导致核心内容不可读
+```text
+$PACKAGE_ROOT/runs/aesthetic-v4/manifest.jsonl
+$PACKAGE_ROOT/runs/aesthetic-v4/screenshots/render_manifest.jsonl
+$PACKAGE_ROOT/runs/aesthetic-v4/scores.jsonl
+$PACKAGE_ROOT/runs/aesthetic-v4/score_cache.jsonl
+```
 
-它不是静态特征主 gate，也不是训练模型权重。它的目标是给 HTML 生成结果做可解释的设计质量初评。
+如果要把 clean JSON 输出到其他绝对路径：
+
+```bash
+cd "$PACKAGE_ROOT"
+AESTHETIC_V4_JSON_OUT_DIR=/ABSOLUTE/PATH/TO/json \
+AESTHETIC_V4_JSON_INDEX=/ABSOLUTE/PATH/TO/json/index.json \
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+/ABSOLUTE/PATH/TO/YOUR_HTML_FILE_OR_DIRECTORY
+```
+
+## 可选 HTML 输出
+
+需要 HTML 报告时开启：
+
+```bash
+cd "$PACKAGE_ROOT"
+AESTHETIC_V4_OUTPUT_HTML=on \
+AESTHETIC_V4_RUN_DIR="$PACKAGE_ROOT/runs/aesthetic-v4" \
+bash "$PACKAGE_ROOT/pipeline/run_aesthetic_v4.sh" \
+/ABSOLUTE/PATH/TO/YOUR_HTML_FILE_OR_DIRECTORY
+```
+
+HTML 输出：
+
+```text
+$PACKAGE_ROOT/runs/aesthetic-v4/report.html
+$PACKAGE_ROOT/runs/aesthetic-v4/report.summary.json
+$PACKAGE_ROOT/runs/aesthetic-v4/scores.csv
+```
+
+需要人工质检聚合页时：
+
+```bash
+python3 "$PACKAGE_ROOT/pipeline/scripts/build_manual_qc.py" \
+--index "$PACKAGE_ROOT/outputs/json/index.json" \
+--out "$PACKAGE_ROOT/manual_qc/index.html"
+```
+
+人工质检页输出：
+
+```text
+$PACKAGE_ROOT/manual_qc/index.html
+```
+
+## JSON 格式
+
+所有对外 JSON 分数都按 100 分制输出。`score` 表示 100 分制分数；`weighted_contribution_100 = score * weight`。
+
+### index.json
+
+`index.json` 是入口索引，负责列出本次输出的所有样本 JSON：
+
+```json
+{
+  "schema_version": 1,
+  "record_count": 1,
+  "records": [
+    {
+      "id": "sample_id",
+      "qid": "sample_id",
+      "html_path": "/ABSOLUTE/PATH/TO/input.html",
+      "json_path": "/ABSOLUTE/PATH/TO/outputs/json/sample_id.json",
+      "score": 63.8,
+      "aggregate_view": "mobile",
+      "occlusion_overlap_check": {
+        "detected": true,
+        "status": "fail",
+        "failed_views": ["web"],
+        "passed_views": ["mobile"]
+      },
+      "screenshots": [
+        "/ABSOLUTE/PATH/TO/mobile.png",
+        "/ABSOLUTE/PATH/TO/web.png"
+      ]
+    }
+  ]
+}
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `schema_version` | clean JSON 索引结构版本。 |
+| `record_count` | 本次输出的样本数量。 |
+| `records[]` | 每个样本一条索引记录。 |
+| `records[].id` | 样本内部 id。 |
+| `records[].qid` | 面向检索和对齐的样本 id。 |
+| `records[].html_path` | 被评估 HTML 的绝对路径。 |
+| `records[].json_path` | 该样本 clean JSON 的绝对路径。 |
+| `records[].score` | 汇总后的 100 分制美学分数。 |
+| `records[].aggregate_view` | 汇总分采用的视口，通常是 `mobile` 或 `web`。 |
+| `records[].occlusion_overlap_check` | 遮挡/重叠检测汇总，只列通过和失败的视口。 |
+| `records[].screenshots` | 本次评估使用的截图绝对路径。 |
+
+### 单样本 JSON
+
+下面是单样本 JSON 的结构骨架。数组 item 只展示字段形状；实际输出中 `aesthetic_rubric`、`extra_info_scores.aesthetics.axis_weighted_scores`、`adaptive_scores.views[].axis_weighted_scores` 都固定包含完整 6 个维度。
+
+```json
+{
+  "schema_version": 1,
+  "id": "sample_dashboard",
+  "qid": "sample_dashboard",
+  "profile": "aesthetic_v4",
+  "rubric_version": "aesthetic_static_v1",
+  "html_path": "/ABSOLUTE/PATH/TO/input.html",
+  "status": "scored",
+  "quality_config": {
+    "adaptive_viewports": "on",
+    "designer_review": "on",
+    "occlusion_overlap_check": "always_on",
+    "score_breakdown": "on"
+  },
+  "aesthetic_rubric": [
+    {
+      "id": "visual_impact_originality",
+      "display_id": "A1",
+      "name": "视觉冲击 / 原创性",
+      "weight": 0.3,
+      "weight_percent": 30,
+      "desc": "该维度的评价说明",
+      "score_rule": "该维度的 100 分制评分规则",
+      "hard_fail": false
+    }
+  ],
+  "extra_info_scores": {
+    "aesthetics": {
+      "score": 63.8,
+      "status": "success",
+      "aggregate_strategy": "mobile_web_min",
+      "aggregate_view": "mobile",
+      "axis_weighted_scores": [
+        {
+          "id": "visual_impact_originality",
+          "display_id": "A1",
+          "name": "视觉冲击 / 原创性",
+          "score": 70,
+          "weight": 0.3,
+          "weighted_contribution_100": 21
+        }
+      ]
+    }
+  },
+  "adaptive_scores": {
+    "enabled": true,
+    "strategy": "mobile_web_min",
+    "aggregate_view": "mobile",
+    "views": [
+      {
+        "view": "mobile",
+        "score": 63.8,
+        "axis_weighted_scores": [
+          {
+            "id": "visual_impact_originality",
+            "display_id": "A1",
+            "name": "视觉冲击 / 原创性",
+            "score": 70,
+            "weight": 0.3,
+            "weighted_contribution_100": 21
+          }
+        ],
+        "designer_review": {
+          "pros": ["主题明确，信息结构基本清楚。"],
+          "cons": ["移动端底部区域拥挤，基础可用性分偏低。"],
+          "suggestions": ["增加底部留白，减少核心按钮和导航的视觉冲突。"]
+        },
+        "occlusion_overlap_check": {
+          "status": "pass",
+          "detected": false,
+          "types": [],
+          "affected_axes": [],
+          "findings": []
+        }
+      },
+      {
+        "view": "web",
+        "score": 71.2,
+        "axis_weighted_scores": [
+          {
+            "id": "visual_impact_originality",
+            "display_id": "A1",
+            "name": "视觉冲击 / 原创性",
+            "score": 76,
+            "weight": 0.3,
+            "weighted_contribution_100": 22.8
+          }
+        ],
+        "designer_review": {
+          "pros": ["桌面端层级更稳定，视觉重心更清楚。"],
+          "cons": ["右上角浮层遮挡筛选按钮，影响基础可用性和局部层级。"],
+          "suggestions": ["调整浮层 z-index 和间距，确保按钮文字和操作区域完整可见。"]
+        },
+        "occlusion_overlap_check": {
+          "status": "fail",
+          "detected": true,
+          "types": ["control_nav", "layer_zindex"],
+          "affected_axes": ["composition_hierarchy", "basic_usability"],
+          "findings": [
+            {
+              "type": "control_nav",
+              "severity": "medium",
+              "target": "右上角筛选按钮",
+              "evidence": "浮层导航遮住了筛选按钮文字，按钮状态不可稳定识别。",
+              "affected_axes": ["basic_usability", "composition_hierarchy"]
+            }
+          ],
+          "score_impact": {
+            "affected_axis_breakdown": [
+              {
+                "id": "composition_hierarchy",
+                "display_id": "A2",
+                "name": "构图层级",
+                "score_after_occlusion": 72,
+                "weight": 0.2,
+                "weighted_loss_100": 1.2
+              }
+            ],
+            "total_weighted_loss_100": 2.4
+          }
+        }
+      }
+    ]
+  },
+  "occlusion_overlap_check": {
+    "status": "fail",
+    "detected": true,
+    "failed_views": ["web"],
+    "passed_views": ["mobile"]
+  },
+  "links": {
+    "html": "/ABSOLUTE/PATH/TO/input.html",
+    "screenshots": [
+      "/ABSOLUTE/PATH/TO/mobile.png",
+      "/ABSOLUTE/PATH/TO/web.png"
+    ]
+  }
+}
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `schema_version` | 单样本 clean JSON 结构版本。 |
+| `id` / `qid` | 样本 id；`qid` 用于跨文件对齐。 |
+| `profile` | 当前评价 profile，固定为 aesthetic-v4 体系。 |
+| `rubric_version` | 当前评分维度版本。 |
+| `html_path` | 被评估 HTML 的绝对路径。 |
+| `status` | 样本评分状态；成功时为 `scored`。 |
+| `quality_config` | 本次运行的质量开关；默认长图、自适应、设计师评价、权重明细、遮挡检测都开启。 |
+| `aesthetic_rubric[]` | 固定 6 个美学维度的定义。每个 item 描述维度 id、展示 id、名称、权重、说明和评分规则。 |
+| `extra_info_scores.aesthetics.score` | 汇总后的最终 100 分制美学分数。 |
+| `extra_info_scores.aesthetics.status` | 美学评分是否成功。 |
+| `extra_info_scores.aesthetics.aggregate_strategy` | 多视口汇总策略；默认 `mobile_web_min`，取 mobile/web 中较低结果作为保守总分。 |
+| `extra_info_scores.aesthetics.aggregate_view` | 最终汇总分来自哪个视口。 |
+| `axis_weighted_scores[]` | 固定 6 个维度的分数明细。`score` 是该维度 100 分制分数；`weight` 是权重；`weighted_contribution_100 = score * weight`。 |
+| `adaptive_scores.enabled` | 是否开启自适应视口评分。 |
+| `adaptive_scores.views[]` | 每个视口一条记录，通常包含 `mobile` 和 `web`。 |
+| `adaptive_scores.views[].score` | 该视口的 100 分制美学分数。 |
+| `adaptive_scores.views[].designer_review` | 设计师口吻评价，包含优点、问题和建议。 |
+| `adaptive_scores.views[].occlusion_overlap_check` | 该视口的遮挡/重叠检测结果。通过为 `pass`，失败为 `fail`。 |
+| `score_impact` | 只在某个视口遮挡失败时出现，说明受影响维度、遮挡后的维度分、权重和损失分。 |
+| `occlusion_overlap_check` | 顶层遮挡汇总，只列 `failed_views` 和 `passed_views`，不替代 view 级详情。 |
+| `links.html` | 被评估 HTML 的绝对路径。 |
+| `links.screenshots[]` | 本次评分截图的绝对路径。 |
+
+固定 6 个维度：
+
+| display_id | id | name | weight |
+| --- | --- | --- | --- |
+| A1 | `visual_impact_originality` | 视觉冲击 / 原创性 | 0.30 |
+| A2 | `composition_hierarchy` | 构图层级 | 0.20 |
+| A3 | `typography` | 字体表现 | 0.15 |
+| A4 | `color_material` | 色彩与材质 | 0.15 |
+| A5 | `detail_finish` | 细节完成度 | 0.15 |
+| A6 | `basic_usability` | 基础可用性 | 0.05 |

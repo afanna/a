@@ -14,15 +14,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:
+    from score_images import sanitize_public_rationale
+except ModuleNotFoundError:
+    from scripts.score_images import sanitize_public_rationale
 
-AXES = [
-    ("visual_impact_originality", "视觉冲击 / 原创性"),
-    ("composition_hierarchy", "构图层级"),
-    ("typography", "字体表现"),
-    ("color_material", "色彩与材质"),
-    ("detail_finish", "细节完成度"),
-    ("basic_usability", "基础可用性"),
-]
+try:
+    from aesthetic_contract import AXES, AXIS_WEIGHTS, score_to_100
+except ModuleNotFoundError:
+    from scripts.aesthetic_contract import AXES, AXIS_WEIGHTS, score_to_100
+
 BUCKETS = [
     ("[0,10)", 0, 10),
     ("[10,20)", 10, 20),
@@ -55,7 +56,7 @@ def score_100(raw_score: Any) -> float | None:
         return None
     if math.isnan(value):
         return None
-    return max(0.0, min(100.0, value * 12.5))
+    return score_to_100(value)
 
 
 def bucket_for(value: float | None) -> str:
@@ -105,7 +106,7 @@ def csv_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "id": record.get("id"),
                 "status": record.get("status"),
-                "score_100": "" if score is None else round(score, 2),
+                "score": "" if score is None else round(score, 2),
                 "bucket": bucket_for(score),
                 "aggregate_view": record.get("aggregate_view"),
                 "prompt_version": meta.get("prompt_version") or "aesthetic-v4",
@@ -114,7 +115,7 @@ def csv_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "occlusion_findings": json.dumps(view.get("occlusion_findings") or [], ensure_ascii=False),
                 "occlusion_affected_axes": json.dumps(impact.get("affected_axes") or [], ensure_ascii=False),
                 "input_path": record.get("input_path"),
-                "rationale": record.get("rationale"),
+                "rationale": sanitize_public_rationale(record.get("rationale")),
             }
         )
     return rows
@@ -125,7 +126,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     fieldnames = list(rows[0].keys()) if rows else [
         "id",
         "status",
-        "score_100",
+        "score",
         "bucket",
         "aggregate_view",
         "prompt_version",
@@ -147,11 +148,27 @@ def axis_table(view: dict[str, Any], show_breakdown: bool) -> str:
         return ""
     scores = view.get("axis_scores") if isinstance(view.get("axis_scores"), dict) else {}
     rows = []
-    for key, label in AXES:
+    for axis in AXES:
+        key = str(axis["id"])
+        label = str(axis["name"])
         value = scores.get(key)
-        text = "" if value is None else f"{float(value):.1f}"
-        rows.append(f"<tr><th>{html.escape(label)}</th><td>{html.escape(text)}</td></tr>")
-    return "<table class=\"axis\"><tbody>" + "".join(rows) + "</tbody></table>"
+        score = score_100(value)
+        weight = AXIS_WEIGHTS.get(key)
+        contribution = None if score is None or weight is None else score * weight
+        rows.append(
+            "<tr>"
+            f"<th>{html.escape(label)}</th>"
+            f"<td>{'' if score is None else f'{score:.1f}'}</td>"
+            f"<td>{'' if weight is None else f'{weight:.2f}'}</td>"
+            f"<td>{'' if contribution is None else f'{contribution:.2f}'}</td>"
+            "</tr>"
+        )
+    return (
+        "<table class=\"axis\"><thead><tr><th>axis</th><th>score</th><th>weight</th>"
+        "<th>weighted_contribution_100</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
+    )
 
 
 def occlusion_block(view: dict[str, Any], show_breakdown: bool) -> str:
@@ -207,7 +224,7 @@ def view_block(name: str, view: dict[str, Any], show_breakdown: bool) -> str:
         if image_uri
         else '<div class="missing">no screenshot</div>'
     )
-    rationale = html.escape(str(view.get("rationale") or ""))
+    rationale = html.escape(sanitize_public_rationale(view.get("rationale")))
     score = view.get("score")
     score_text = "" if score is None else f"{score_100(score):.2f}/100"
     return f"""
@@ -247,7 +264,7 @@ def render_html(records: list[dict[str, Any]], *, score_breakdown: str) -> str:
     </div>
     <div class="score"><b>{html.escape(score_text)}</b><span>/100</span><em>{html.escape(bucket)}</em></div>
   </header>
-  <div class="rationale">{html.escape(str(record.get("rationale") or ""))}</div>
+  <div class="rationale">{html.escape(sanitize_public_rationale(record.get("rationale")))}</div>
   {view_html}
 </article>
 """

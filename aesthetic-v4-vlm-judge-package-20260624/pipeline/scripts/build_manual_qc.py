@@ -32,13 +32,15 @@ def fmt_score(value: Any) -> str:
 
 def axis_rows(record: dict[str, Any]) -> str:
     rows = []
-    for item in ((record.get("score") or {}).get("axis_breakdown") or []):
+    aesthetics = ((record.get("extra_info_scores") or {}).get("aesthetics") or {})
+    for item in aesthetics.get("axis_weighted_scores") or []:
         if not isinstance(item, dict):
             continue
         rows.append(
             "<tr>"
-            f"<td>{html.escape(str(item.get('axis') or ''))}</td>"
-            f"<td>{fmt_score(item.get('axis_score_100'))}</td>"
+            f"<td>{html.escape(str(item.get('display_id') or ''))}</td>"
+            f"<td>{html.escape(str(item.get('name') or item.get('id') or ''))}</td>"
+            f"<td>{fmt_score(item.get('score'))}</td>"
             f"<td>{html.escape(str(item.get('weight') or ''))}</td>"
             f"<td>{fmt_score(item.get('weighted_contribution_100'))}</td>"
             "</tr>"
@@ -48,23 +50,42 @@ def axis_rows(record: dict[str, Any]) -> str:
 
 def occlusion_rows(record: dict[str, Any]) -> str:
     rows = []
-    occlusion = record.get("occlusion") if isinstance(record.get("occlusion"), dict) else {}
-    for finding in occlusion.get("findings") or []:
-        if not isinstance(finding, dict):
+    adaptive = record.get("adaptive_scores") if isinstance(record.get("adaptive_scores"), dict) else {}
+    for view in adaptive.get("views") or []:
+        if not isinstance(view, dict):
             continue
-        axes = ", ".join(str(axis) for axis in finding.get("affected_axes") or [])
-        rows.append(
-            "<tr>"
-            f"<td>{html.escape(str(finding.get('type') or ''))}</td>"
-            f"<td>{html.escape(str(finding.get('severity') or ''))}</td>"
-            f"<td>{html.escape(str(finding.get('target') or ''))}</td>"
-            f"<td>{html.escape(axes)}</td>"
-            f"<td>{html.escape(str(finding.get('evidence') or ''))}</td>"
-            "</tr>"
-        )
+        occlusion = view.get("occlusion_overlap_check") if isinstance(view.get("occlusion_overlap_check"), dict) else {}
+        for finding in occlusion.get("findings") or []:
+            if not isinstance(finding, dict):
+                continue
+            axes = ", ".join(str(axis) for axis in finding.get("affected_axes") or [])
+            rows.append(
+                "<tr>"
+                f"<td>{html.escape(str(view.get('view') or ''))}</td>"
+                f"<td>{html.escape(str(finding.get('type') or ''))}</td>"
+                f"<td>{html.escape(str(finding.get('severity') or ''))}</td>"
+                f"<td>{html.escape(str(finding.get('target') or ''))}</td>"
+                f"<td>{html.escape(axes)}</td>"
+                f"<td>{html.escape(str(finding.get('evidence') or ''))}</td>"
+                "</tr>"
+            )
     if not rows:
-        return '<tr><td colspan="5">none</td></tr>'
+        return '<tr><td colspan="6">none</td></tr>'
     return "".join(rows)
+
+
+def occlusion_types(record: dict[str, Any]) -> str:
+    types: list[str] = []
+    adaptive = record.get("adaptive_scores") if isinstance(record.get("adaptive_scores"), dict) else {}
+    for view in adaptive.get("views") or []:
+        if not isinstance(view, dict):
+            continue
+        occlusion = view.get("occlusion_overlap_check") if isinstance(view.get("occlusion_overlap_check"), dict) else {}
+        for item in occlusion.get("types") or []:
+            text = str(item)
+            if text and text not in types:
+                types.append(text)
+    return ", ".join(types)
 
 
 def screenshot_html(record: dict[str, Any]) -> str:
@@ -80,14 +101,14 @@ def screenshot_html(record: dict[str, Any]) -> str:
 
 
 def card(record: dict[str, Any], json_path: Path) -> str:
-    score = record.get("score") if isinstance(record.get("score"), dict) else {}
-    occlusion = record.get("occlusion") if isinstance(record.get("occlusion"), dict) else {}
+    aesthetics = ((record.get("extra_info_scores") or {}).get("aesthetics") or {})
+    occlusion = record.get("occlusion_overlap_check") if isinstance(record.get("occlusion_overlap_check"), dict) else {}
     html_uri = file_uri(record.get("html_path"))
     json_uri = file_uri(json_path)
     screenshot = screenshot_html(record)
     detected = "yes" if occlusion.get("detected") else "no"
-    status = str(occlusion.get("status") or "none")
-    types = ", ".join(str(item) for item in occlusion.get("types") or [])
+    status = str(occlusion.get("status") or "pass")
+    types = occlusion_types(record)
     rationale = html.escape(str(record.get("rationale") or ""))
     return f"""
 <article class="card" data-occlusion="{html.escape(detected)}" data-status="{html.escape(status)}">
@@ -96,7 +117,7 @@ def card(record: dict[str, Any], json_path: Path) -> str:
       <h2>{html.escape(str(record.get('qid') or record.get('id') or 'sample'))}</h2>
       <p>{html.escape(str(record.get('html_path') or record.get('sample_relpath') or ''))}</p>
     </div>
-    <div class="score"><b>{fmt_score(score.get('score_100'))}</b><span>/100</span></div>
+    <div class="score"><b>{fmt_score(aesthetics.get('score'))}</b><span>/100</span></div>
   </header>
   <nav>
     <a href="{html.escape(html_uri)}">HTML</a>
@@ -108,9 +129,9 @@ def card(record: dict[str, Any], json_path: Path) -> str:
       <div class="occ {html.escape('bad' if occlusion.get('detected') else 'ok')}">occlusion: {html.escape(detected)} · {html.escape(status)} · {html.escape(types or 'none')}</div>
       <p class="rationale">{rationale}</p>
       <h3>Axis Breakdown</h3>
-      <table><thead><tr><th>axis</th><th>axis_score_100</th><th>weight</th><th>weighted_contribution_100</th></tr></thead><tbody>{axis_rows(record)}</tbody></table>
+      <table><thead><tr><th>id</th><th>axis</th><th>score</th><th>weight</th><th>weighted_contribution_100</th></tr></thead><tbody>{axis_rows(record)}</tbody></table>
       <h3>Occlusion Findings</h3>
-      <table><thead><tr><th>type</th><th>severity</th><th>target</th><th>affected_axes</th><th>evidence</th></tr></thead><tbody>{occlusion_rows(record)}</tbody></table>
+      <table><thead><tr><th>view</th><th>type</th><th>severity</th><th>target</th><th>affected_axes</th><th>evidence</th></tr></thead><tbody>{occlusion_rows(record)}</tbody></table>
     </div>
   </section>
 </article>
@@ -119,7 +140,7 @@ def card(record: dict[str, Any], json_path: Path) -> str:
 
 def render(records: list[tuple[Path, dict[str, Any]]]) -> str:
     total = len(records)
-    occluded = sum(1 for _, record in records if (record.get("occlusion") or {}).get("detected"))
+    occluded = sum(1 for _, record in records if (record.get("occlusion_overlap_check") or {}).get("detected"))
     cards = "\n".join(card(record, path) for path, record in records)
     return f"""<!doctype html>
 <html lang="zh-CN">

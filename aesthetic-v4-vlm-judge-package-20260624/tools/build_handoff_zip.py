@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUT_DIR = Path("/Volumes/TU820/aesthetic/outputs")
+DEFAULT_OUT_DIR = ROOT / "dist"
 TEXT_SUFFIXES = {
     ".css",
     ".csv",
@@ -33,24 +33,6 @@ SECRET_PATTERNS = [
     re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
 ]
 
-ALLOWED_ACCEPTANCE_DIRS = {
-    "benchmark_claude47_final_default",
-    "occlusion_claude47_final_default",
-    "occlusion_inputs",
-}
-ALLOWED_ACCEPTANCE_FILES = {
-    "DELIVERY_REVIEW.md",
-    "occlusion_claude47_final_default_summary.json",
-}
-ALLOWED_RUN_DIRS = {
-    "final_mock_validation_default_aesthetic_v4",
-    "final_smoke_pangu_claude47_default_aesthetic_v4",
-    "packy_gpt55_q10252_score_only",
-    "packy_gpt55_q10252_smoke",
-    "packy_gpt55_q10903_occlusion_smoke",
-}
-
-
 def should_skip(path: Path) -> bool:
     rel = path.relative_to(ROOT)
     parts = set(rel.parts)
@@ -62,12 +44,8 @@ def should_skip(path: Path) -> bool:
         return True
     if path.suffix in {".pyc", ".zip"}:
         return True
-    if rel.parts and rel.parts[0] == "acceptance":
-        if len(rel.parts) == 2:
-            return rel.parts[1] not in ALLOWED_ACCEPTANCE_FILES
-        return rel.parts[1] not in ALLOWED_ACCEPTANCE_DIRS
-    if rel.parts and rel.parts[0] == "runs":
-        return len(rel.parts) < 2 or rel.parts[1] not in ALLOWED_RUN_DIRS
+    if rel.parts and rel.parts[0] in {"acceptance", "manual_qc", "outputs", "run_full", "runs"}:
+        return True
     return False
 
 
@@ -80,7 +58,7 @@ def assert_no_secret(path: Path) -> None:
         return
     text = path.read_text(encoding="utf-8", errors="ignore")
     for line_no, line in enumerate(text.splitlines(), start=1):
-        match = re.match(r"(?i)^\s*(?:packy|pangu|openai|anthropic)_api_key\s*=\s*(.*)$", line)
+        match = re.match(r"(?i)^\s*(?:pangu|openai|anthropic)_api_key\s*=\s*(.*)$", line)
         if match:
             value = match.group(1).strip()
             if value and value not in {"...", "<...>", "<redacted>", "REDACTED", "sk-REDACTED"}:

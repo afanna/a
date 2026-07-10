@@ -4,7 +4,10 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PACKAGE_ROOT = path.resolve(SCRIPT_DIR, "../..");
 
 const VIEWPORTS = {
   desktop: { name: "desktop", width: 1440, height: 900, deviceScaleFactor: 1 },
@@ -118,8 +121,8 @@ const VIEWPORT_ALIASES = new Map(
 
 function parseArgs(argv) {
   const args = {
-    manifest: "runs/aesthetic_v1/manifest.jsonl",
-    out: "runs/aesthetic_v1/screenshots",
+    manifest: path.join(PACKAGE_ROOT, "runs", "aesthetic-v4", "manifest.jsonl"),
+    out: path.join(PACKAGE_ROOT, "runs", "aesthetic-v4", "screenshots"),
     waitMs: 2000,
     timeoutMs: 30000,
     hardTimeoutMs: 90000,

@@ -11,14 +11,35 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 try:
-    from score_images import AESTHETIC_RUBRIC
+    from aesthetic_contract import (
+        AXES_BY_ID,
+        EXTERNAL_RUBRIC,
+        axis_weighted_scores,
+        display_viewport,
+        round_3,
+        score_to_100,
+        weighted_total_100,
+    )
 except ModuleNotFoundError:
-    from scripts.score_images import AESTHETIC_RUBRIC
+    from scripts.aesthetic_contract import (
+        AXES_BY_ID,
+        EXTERNAL_RUBRIC,
+        axis_weighted_scores,
+        display_viewport,
+        round_3,
+        score_to_100,
+        weighted_total_100,
+    )
+
+try:
+    from score_images import sanitize_public_rationale
+except ModuleNotFoundError:
+    from scripts.score_images import sanitize_public_rationale
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -37,16 +58,6 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-
-
-def round_3(value: Any) -> float:
-    return float(Decimal(str(value)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP))
-
-
-def score_100(score: Any) -> float | None:
-    if score is None:
-        return None
-    return round_3(Decimal(str(score)) * Decimal("12.5"))
 
 
 def qid_for(record: dict[str, Any]) -> str:
@@ -88,68 +99,79 @@ def view_image(view: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def aggregate_axis_breakdown(record: dict[str, Any]) -> list[dict[str, Any]]:
+def quality_status(status: Any) -> str:
+    return "success" if status == "scored" else str(status or "failed")
+
+
+def aggregate_axis_weighted_scores(record: dict[str, Any]) -> list[dict[str, Any]]:
     aesthetics = (record.get("extra_info_scores") or {}).get("aesthetics") or {}
     axis_scores = aesthetics.get("axis_scores") if isinstance(aesthetics.get("axis_scores"), dict) else {}
-    score_breakdown = record.get("score_breakdown") if isinstance(record.get("score_breakdown"), dict) else {}
-    weights = score_breakdown.get("rubric_weights") if isinstance(score_breakdown.get("rubric_weights"), dict) else {}
-    rows: list[dict[str, Any]] = []
-    for axis, score in axis_scores.items():
-        weight = weights.get(axis)
-        weighted_contribution_8 = (
-            round_3(Decimal(str(score)) * Decimal(str(weight)))
-            if score is not None and weight is not None
-            else None
-        )
-        rows.append(
-            {
-                "axis": axis,
-                "axis_score_100": score_100(score),
-                "weight": weight,
-                "weighted_contribution_100": score_100(weighted_contribution_8),
-            }
-        )
-    return sorted(rows, key=lambda row: str(row["axis"]))
+    return axis_weighted_scores(axis_scores)
 
 
-def clean_occlusion_impact(impact: Any) -> dict[str, Any]:
+def clean_occlusion_impact(impact: Any) -> dict[str, Any] | None:
     if not isinstance(impact, dict):
-        return {}
+        return None
     affected_axes = []
     for item in impact.get("affected_axes") if isinstance(impact.get("affected_axes"), list) else []:
         if not isinstance(item, dict):
             continue
+        axis = item.get("axis")
+        meta = AXES_BY_ID.get(str(axis), {})
         affected_axes.append(
             {
-                "axis": item.get("axis"),
-                "axis_score_100": score_100(item.get("score")),
+                "id": axis,
+                "display_id": meta.get("display_id"),
+                "name": meta.get("name") or axis,
+                "score_after_occlusion": score_to_100(item.get("score")),
                 "weight": item.get("weight"),
-                "weighted_contribution_100": score_100(item.get("weighted_contribution")),
-                "weighted_loss_from_full_score_100": score_100(item.get("weighted_loss_from_max")),
-                "severity": item.get("severity"),
-                "finding_types": item.get("finding_types") if isinstance(item.get("finding_types"), list) else [],
+                "weighted_loss_100": score_to_100(item.get("weighted_loss_from_max")),
             }
         )
-    affected_contribution_100 = round_3(
+    if not affected_axes:
+        return None
+    total_loss = round_3(
         sum(
-            Decimal(str(item["weighted_contribution_100"]))
+            Decimal(str(item["weighted_loss_100"]))
             for item in affected_axes
-            if item.get("weighted_contribution_100") is not None
-        )
-    )
-    affected_loss_100 = round_3(
-        sum(
-            Decimal(str(item["weighted_loss_from_full_score_100"]))
-            for item in affected_axes
-            if item.get("weighted_loss_from_full_score_100") is not None
+            if item.get("weighted_loss_100") is not None
         )
     )
     return {
-        "scoring_rule": "固定权重不变；遮挡只降低 affected_axes 对应轴分，其他轴按原标准评分；总分为所有轴 weighted_contribution_100 相加。",
         "affected_axis_breakdown": affected_axes,
-        "affected_axes_weighted_contribution_100": affected_contribution_100,
-        "affected_axes_weighted_loss_from_full_score_100": affected_loss_100,
+        "total_weighted_loss_100": total_loss,
     }
+
+
+def view_occlusion_payload(view: dict[str, Any]) -> dict[str, Any]:
+    detected = bool(view.get("occlusion_overlap_detected"))
+    payload: dict[str, Any] = {
+        "status": "fail" if detected else "pass",
+        "detected": detected,
+        "types": view.get("occlusion_overlap_types") or [],
+        "affected_axes": view.get("occlusion_overlap_affected_axes") or [],
+        "findings": view.get("occlusion_findings") or [],
+    }
+    impact = clean_occlusion_impact(view.get("occlusion_score_impact"))
+    if detected:
+        payload["score_impact"] = impact or {
+            "affected_axis_breakdown": [],
+            "total_weighted_loss_100": 0,
+        }
+    return payload
+
+
+def aggregate_strategy_label(formula: Any, views_payload: list[dict[str, Any]]) -> str:
+    view_names = {str(view.get("view")) for view in views_payload}
+    if formula == "min_of_available_views" and {"mobile", "web"}.issubset(view_names):
+        return "mobile_web_min"
+    if formula == "single_canonical_screenshot_score":
+        return "single_view"
+    if formula == "mean_of_available_views":
+        return "mean_of_available_views"
+    if formula == "not_scored":
+        return "not_scored"
+    return str(formula or "unknown")
 
 
 def clean_views(record: dict[str, Any]) -> list[dict[str, Any]]:
@@ -158,9 +180,15 @@ def clean_views(record: dict[str, Any]) -> list[dict[str, Any]]:
     for viewport, view in views.items():
         if not isinstance(view, dict):
             continue
+        axis_rows = axis_weighted_scores(
+            view.get("axis_scores") if isinstance(view.get("axis_scores"), dict) else {}
+        )
         item = {
-            "viewport": viewport,
-            "score_100": score_100(view.get("score")),
+            "view": display_viewport(viewport),
+            "score": weighted_total_100(axis_rows) or score_to_100(view.get("score")),
+            "axis_weighted_scores": axis_rows,
+            "designer_review": view.get("designer_review"),
+            "occlusion_overlap_check": view_occlusion_payload(view),
             "image": view_image(view),
             "cache_hit": view.get("cache_hit"),
             "elapsed_ms": view.get("elapsed_ms"),
@@ -172,19 +200,28 @@ def clean_views(record: dict[str, Any]) -> list[dict[str, Any]]:
 def clean_record(record: dict[str, Any]) -> dict[str, Any]:
     aesthetics = (record.get("extra_info_scores") or {}).get("aesthetics") or {}
     sample_metadata = record.get("sample_metadata") if isinstance(record.get("sample_metadata"), dict) else {}
-    axis_breakdown = aggregate_axis_breakdown(record)
-    weighted_total_100 = (
-        round_3(sum(Decimal(str(row["weighted_contribution_100"])) for row in axis_breakdown if row.get("weighted_contribution_100") is not None))
-        if axis_breakdown
-        else score_100(aesthetics.get("weighted_total"))
-    )
+    axis_rows = aggregate_axis_weighted_scores(record)
+    total_score = weighted_total_100(axis_rows)
+    clean_views_payload = clean_views(record)
+    aggregate_strategy = aggregate_strategy_label(record.get("aggregate_formula"), clean_views_payload)
+    failed_views = [
+        str(view.get("view"))
+        for view in clean_views_payload
+        if (view.get("occlusion_overlap_check") or {}).get("status") == "fail"
+    ]
+    passed_views = [
+        str(view.get("view"))
+        for view in clean_views_payload
+        if (view.get("occlusion_overlap_check") or {}).get("status") == "pass"
+    ]
+    occlusion_detected = bool(failed_views)
     output = {
         "schema_version": 1,
         "id": record.get("id"),
         "qid": qid_for(record),
         "profile": record.get("profile"),
         "rubric_version": record.get("rubric_version"),
-        "aesthetic_rubric": AESTHETIC_RUBRIC,
+        "aesthetic_rubric": EXTERNAL_RUBRIC,
         "source": record.get("source"),
         "source_key": record.get("source_key"),
         "sample_relpath": record.get("sample_relpath"),
@@ -192,26 +229,32 @@ def clean_record(record: dict[str, Any]) -> dict[str, Any]:
         "sample_metadata": sample_metadata,
         "status": record.get("status"),
         "quality_config": record.get("quality_config") or {},
-        "score": {
-            "score_100": weighted_total_100,
-            "aggregate_view": record.get("aggregate_view"),
-            "aggregate_formula": record.get("aggregate_formula"),
-            "axis_breakdown": axis_breakdown,
+        "extra_info_scores": {
+            "aesthetics": {
+                "score": total_score,
+                "status": quality_status(record.get("status")),
+                "aggregate_strategy": aggregate_strategy,
+                "aggregate_view": display_viewport(record.get("aggregate_view")),
+                "axis_weighted_scores": axis_rows,
+            }
         },
-        "rationale": record.get("rationale"),
-        "occlusion": {
-            "check": record.get("occlusion_overlap_check"),
-            "detected": record.get("occlusion_overlap_detected"),
-            "status": record.get("occlusion_overlap_status"),
-            "types": record.get("occlusion_overlap_types") or [],
-            "affected_axes": record.get("occlusion_overlap_affected_axes") or [],
-            "findings": record.get("occlusion_findings") or [],
-            "score_impact": clean_occlusion_impact(record.get("occlusion_score_impact")),
+        "adaptive_scores": {
+            "enabled": (record.get("quality_config") or {}).get("adaptive_viewports") in {"on", "auto"},
+            "strategy": aggregate_strategy,
+            "aggregate_view": display_viewport(record.get("aggregate_view")),
+            "views": clean_views_payload,
         },
-        "views": clean_views(record),
+        "rationale": sanitize_public_rationale(record.get("rationale")),
+        "designer_review": aesthetics.get("designer_review"),
+        "occlusion_overlap_check": {
+            "status": "fail" if occlusion_detected else "pass",
+            "detected": occlusion_detected,
+            "failed_views": failed_views,
+            "passed_views": passed_views,
+        },
         "links": {
             "html": html_path_for(record),
-            "screenshots": [view["image"]["path"] for view in clean_views(record) if view["image"].get("path")],
+            "screenshots": [view["image"]["path"] for view in clean_views_payload if view["image"].get("path")],
         },
     }
     return output
@@ -243,12 +286,13 @@ def main() -> int:
                     "qid": qid,
                     "html_path": clean.get("html_path"),
                     "json_path": str(out_path.resolve()),
-                    "score": clean.get("score"),
-                    "occlusion": {
-                        "detected": clean["occlusion"].get("detected"),
-                        "status": clean["occlusion"].get("status"),
-                        "types": clean["occlusion"].get("types"),
-                        "affected_axes": clean["occlusion"].get("affected_axes"),
+                    "score": (clean.get("extra_info_scores") or {}).get("aesthetics", {}).get("score"),
+                    "aggregate_view": (clean.get("extra_info_scores") or {}).get("aesthetics", {}).get("aggregate_view"),
+                    "occlusion_overlap_check": {
+                        "detected": clean["occlusion_overlap_check"].get("detected"),
+                        "status": clean["occlusion_overlap_check"].get("status"),
+                        "failed_views": clean["occlusion_overlap_check"].get("failed_views"),
+                        "passed_views": clean["occlusion_overlap_check"].get("passed_views"),
                     },
                     "screenshots": clean["links"].get("screenshots") or [],
                 }
