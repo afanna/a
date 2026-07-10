@@ -1,0 +1,845 @@
+{
+  "image_path": "C:\\Users\\afan\\Desktop\\Automation-screenshot\\qianlong\\11.png",
+  "dsl_path": null,
+  "query": "",
+  "overall": 38.52,
+  "grade": "D",
+  "confidence": 0.5875,
+  "dimensions": [
+    {
+      "name": "information",
+      "label": "信息完整性",
+      "score": 0.0,
+      "weight": 20.0,
+      "metrics": [
+        {
+          "name": "coverage",
+          "dimension": "information",
+          "score": 0.0,
+          "value": 0.0,
+          "ideal": 1.0,
+          "deviation": 1.0,
+          "confidence": 1.0,
+          "formula": "coverage = matched / required",
+          "status": "ok",
+          "details": {
+            "reason": "no DSL required display text found"
+          }
+        },
+        {
+          "name": "truncation",
+          "dimension": "information",
+          "score": 0.0,
+          "value": 1.0,
+          "ideal": 0.0,
+          "deviation": 1.0,
+          "confidence": 1.0,
+          "formula": "score = 100 * (1 - truncation_rate)",
+          "status": "ok",
+          "details": {
+            "reason": "no DSL required display text found"
+          }
+        },
+        {
+          "name": "duplicate",
+          "dimension": "information",
+          "score": 0.0,
+          "value": 1.0,
+          "ideal": 0.0,
+          "deviation": 1.0,
+          "confidence": 1.0,
+          "formula": "score = 100 * (1 - duplicate_rate)",
+          "status": "ok",
+          "details": {
+            "reason": "no DSL required display text found"
+          }
+        }
+      ]
+    },
+    {
+      "name": "layout",
+      "label": "布局美学",
+      "score": 23.08,
+      "weight": 30.0,
+      "metrics": [
+        {
+          "name": "whitespace",
+          "dimension": "layout",
+          "score": 13.51,
+          "value": 0.7701,
+          "ideal": 0.45,
+          "deviation": 0.3201,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "margin_consistency",
+          "dimension": "layout",
+          "score": 7.37,
+          "value": 0.8691,
+          "ideal": 0.0,
+          "deviation": 0.8691,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-3.0 * CV)",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "spacing_rhythm",
+          "dimension": "layout",
+          "score": 18.59,
+          "value": 0.4207,
+          "ideal": 0.0,
+          "deviation": 0.4207,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-4.0 * CV)",
+          "status": "ok",
+          "details": {
+            "gap_count": 5
+          }
+        },
+        {
+          "name": "density",
+          "dimension": "layout",
+          "score": 13.51,
+          "value": 0.2299,
+          "ideal": 0.55,
+          "deviation": 0.3201,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "overlap",
+          "dimension": "layout",
+          "score": 24.83,
+          "value": 0.7517,
+          "ideal": 0.0,
+          "deviation": 0.7517,
+          "confidence": 0.5285773277282715,
+          "formula": "max(0, 100 - 100.0 * max_iou)",
+          "status": "ok",
+          "details": {
+            "pairs": [
+              {
+                "left": "text",
+                "right": "tag",
+                "iou": 0.7517
+              }
+            ]
+          }
+        },
+        {
+          "name": "overflow",
+          "dimension": "layout",
+          "score": 100.0,
+          "value": 0.0,
+          "ideal": 0.0,
+          "deviation": 0.0,
+          "confidence": 0.5285773277282715,
+          "formula": "max(0, 100 - 100.0 * overflow)",
+          "status": "ok",
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "visual",
+      "label": "视觉设计",
+      "score": 73.47,
+      "weight": 35.0,
+      "metrics": [
+        {
+          "name": "color_harmony",
+          "dimension": "visual",
+          "score": 84.95,
+          "value": {
+            "color_count": 3,
+            "avg_lab_distance": 22.75
+          },
+          "ideal": {
+            "color_count": 4,
+            "avg_lab_distance": 32
+          },
+          "deviation": null,
+          "confidence": 0.5285773277282715,
+          "formula": "mean(Gaussian(color_count), Gaussian(avg_lab_distance))",
+          "status": "ok",
+          "details": {
+            "colors": [
+              [
+                254,
+                253,
+                254
+              ],
+              [
+                246,
+                241,
+                241
+              ],
+              [
+                223,
+                214,
+                213
+              ]
+            ],
+            "proportions": [
+              0.499875,
+              0.28475,
+              0.195
+            ]
+          }
+        },
+        {
+          "name": "contrast",
+          "dimension": "visual",
+          "score": 26.18,
+          "value": 3.636,
+          "ideal": 4.5,
+          "deviation": 0.864,
+          "confidence": 0.5285773277282715,
+          "formula": "Sigmoid(min_contrast)",
+          "status": "ok",
+          "details": {
+            "ratios": [
+              4.234,
+              3.636,
+              16.676,
+              16.686,
+              17.224,
+              17.224,
+              17.224,
+              17.224
+            ]
+          }
+        },
+        {
+          "name": "visual_focus",
+          "dimension": "visual",
+          "score": 99.18,
+          "value": 0.3969,
+          "ideal": 0.42,
+          "deviation": 0.0231,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian(max_visual_weight / sum_visual_weight)",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "visual_balance",
+          "dimension": "visual",
+          "score": 82.93,
+          "value": 0.1713,
+          "ideal": 0.0,
+          "deviation": 0.1713,
+          "confidence": 0.5285773277282715,
+          "formula": "Euclidean distance + Gaussian",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "text_image_ratio",
+          "dimension": "visual",
+          "score": 34.8,
+          "value": 0.1868,
+          "ideal": 0.55,
+          "deviation": 0.3632,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian(text_area / occupied_area)",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "reading_flow",
+          "dimension": "visual",
+          "score": 67.97,
+          "value": {
+            "path_norm": 1.7795,
+            "backtracks": 0
+          },
+          "ideal": {
+            "path_norm": "low",
+            "backtracks": 0
+          },
+          "deviation": null,
+          "confidence": 0.5285773277282715,
+          "formula": "100 - path_penalty - backtrack_penalty",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "hierarchy",
+          "dimension": "visual",
+          "score": 99.96,
+          "value": 0.3547,
+          "ideal": 0.35,
+          "deviation": 0.0047,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian(Gini(text_visual_weight))",
+          "status": "ok",
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "consistency",
+      "label": "设计一致性",
+      "score": 39.23,
+      "weight": 15.0,
+      "metrics": [
+        {
+          "name": "alignment",
+          "dimension": "consistency",
+          "score": 25.0,
+          "value": 0.25,
+          "ideal": 1.0,
+          "deviation": 0.75,
+          "confidence": 0.5285773277282715,
+          "formula": "mean(x-edge snap ratio, x-center snap ratio)",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "typography_rhythm",
+          "dimension": "consistency",
+          "score": 13.53,
+          "value": 6,
+          "ideal": 3.0,
+          "deviation": 3.0,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian(font_size_level_count)",
+          "status": "ok",
+          "details": {
+            "levels": [
+              22,
+              24,
+              26,
+              28,
+              30,
+              32
+            ]
+          }
+        },
+        {
+          "name": "component_size",
+          "dimension": "consistency",
+          "score": 61.12,
+          "value": 0.1969,
+          "ideal": 0.0,
+          "deviation": 0.1969,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-2.5 * CV)",
+          "status": "ok",
+          "details": {
+            "component_count": 3
+          }
+        },
+        {
+          "name": "corner_radius_consistency",
+          "dimension": "consistency",
+          "score": 11.08,
+          "value": {
+            "unique_radius_count": 6,
+            "radii": [
+              7.88,
+              11.83,
+              12.75,
+              12.76,
+              8.07,
+              10.3,
+              1.47,
+              2.13,
+              4.39,
+              41.53
+            ]
+          },
+          "ideal": {
+            "unique_radius_count": 2.0
+          },
+          "deviation": 4.0,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-0.55 * max(0, unique_radius_count - 2.0))",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "padding_consistency",
+          "dimension": "consistency",
+          "score": 0.17,
+          "value": 2.1282,
+          "ideal": 0.0,
+          "deviation": 2.1282,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-3.0 * CV)",
+          "status": "ok",
+          "details": {
+            "component_count": 2,
+            "padding_values": [
+              3.0,
+              0.0,
+              0.0,
+              0.0,
+              85.0,
+              596.0,
+              22.0,
+              19.0
+            ]
+          }
+        },
+        {
+          "name": "icon_size_consistency",
+          "dimension": "consistency",
+          "score": 49.56,
+          "value": 0.2006,
+          "ideal": 0.0,
+          "deviation": 0.2006,
+          "confidence": 0.5285773277282715,
+          "formula": "100 * exp(-3.5 * CV)",
+          "status": "ok",
+          "details": {
+            "icon_count": 5,
+            "sizes": [
+              19.0,
+              22.0,
+              30.0,
+              30.5,
+              32.94
+            ]
+          }
+        },
+        {
+          "name": "grid",
+          "dimension": "consistency",
+          "score": 62.5,
+          "value": 0.625,
+          "ideal": 1.0,
+          "deviation": 0.375,
+          "confidence": 0.5285773277282715,
+          "formula": "mean(x snap ratio, y snap ratio)",
+          "status": "ok",
+          "details": {}
+        },
+        {
+          "name": "style_simplicity",
+          "dimension": "consistency",
+          "score": 88.25,
+          "value": 3,
+          "ideal": 4.0,
+          "deviation": 1.0,
+          "confidence": 0.5285773277282715,
+          "formula": "Gaussian(dominant_color_count)",
+          "status": "ok",
+          "details": {}
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "alignment",
+      "dimension": "consistency",
+      "score": 25.0,
+      "value": 0.25,
+      "ideal": 1.0,
+      "deviation": 0.75,
+      "confidence": 0.5285773277282715,
+      "formula": "mean(x-edge snap ratio, x-center snap ratio)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "typography_rhythm",
+      "dimension": "consistency",
+      "score": 13.53,
+      "value": 6,
+      "ideal": 3.0,
+      "deviation": 3.0,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian(font_size_level_count)",
+      "status": "ok",
+      "details": {
+        "levels": [
+          22,
+          24,
+          26,
+          28,
+          30,
+          32
+        ]
+      }
+    },
+    {
+      "name": "component_size",
+      "dimension": "consistency",
+      "score": 61.12,
+      "value": 0.1969,
+      "ideal": 0.0,
+      "deviation": 0.1969,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-2.5 * CV)",
+      "status": "ok",
+      "details": {
+        "component_count": 3
+      }
+    },
+    {
+      "name": "corner_radius_consistency",
+      "dimension": "consistency",
+      "score": 11.08,
+      "value": {
+        "unique_radius_count": 6,
+        "radii": [
+          7.88,
+          11.83,
+          12.75,
+          12.76,
+          8.07,
+          10.3,
+          1.47,
+          2.13,
+          4.39,
+          41.53
+        ]
+      },
+      "ideal": {
+        "unique_radius_count": 2.0
+      },
+      "deviation": 4.0,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-0.55 * max(0, unique_radius_count - 2.0))",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "padding_consistency",
+      "dimension": "consistency",
+      "score": 0.17,
+      "value": 2.1282,
+      "ideal": 0.0,
+      "deviation": 2.1282,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-3.0 * CV)",
+      "status": "ok",
+      "details": {
+        "component_count": 2,
+        "padding_values": [
+          3.0,
+          0.0,
+          0.0,
+          0.0,
+          85.0,
+          596.0,
+          22.0,
+          19.0
+        ]
+      }
+    },
+    {
+      "name": "icon_size_consistency",
+      "dimension": "consistency",
+      "score": 49.56,
+      "value": 0.2006,
+      "ideal": 0.0,
+      "deviation": 0.2006,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-3.5 * CV)",
+      "status": "ok",
+      "details": {
+        "icon_count": 5,
+        "sizes": [
+          19.0,
+          22.0,
+          30.0,
+          30.5,
+          32.94
+        ]
+      }
+    },
+    {
+      "name": "grid",
+      "dimension": "consistency",
+      "score": 62.5,
+      "value": 0.625,
+      "ideal": 1.0,
+      "deviation": 0.375,
+      "confidence": 0.5285773277282715,
+      "formula": "mean(x snap ratio, y snap ratio)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "style_simplicity",
+      "dimension": "consistency",
+      "score": 88.25,
+      "value": 3,
+      "ideal": 4.0,
+      "deviation": 1.0,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian(dominant_color_count)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "coverage",
+      "dimension": "information",
+      "score": 0.0,
+      "value": 0.0,
+      "ideal": 1.0,
+      "deviation": 1.0,
+      "confidence": 1.0,
+      "formula": "coverage = matched / required",
+      "status": "ok",
+      "details": {
+        "reason": "no DSL required display text found"
+      }
+    },
+    {
+      "name": "truncation",
+      "dimension": "information",
+      "score": 0.0,
+      "value": 1.0,
+      "ideal": 0.0,
+      "deviation": 1.0,
+      "confidence": 1.0,
+      "formula": "score = 100 * (1 - truncation_rate)",
+      "status": "ok",
+      "details": {
+        "reason": "no DSL required display text found"
+      }
+    },
+    {
+      "name": "duplicate",
+      "dimension": "information",
+      "score": 0.0,
+      "value": 1.0,
+      "ideal": 0.0,
+      "deviation": 1.0,
+      "confidence": 1.0,
+      "formula": "score = 100 * (1 - duplicate_rate)",
+      "status": "ok",
+      "details": {
+        "reason": "no DSL required display text found"
+      }
+    },
+    {
+      "name": "whitespace",
+      "dimension": "layout",
+      "score": 13.51,
+      "value": 0.7701,
+      "ideal": 0.45,
+      "deviation": 0.3201,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "margin_consistency",
+      "dimension": "layout",
+      "score": 7.37,
+      "value": 0.8691,
+      "ideal": 0.0,
+      "deviation": 0.8691,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-3.0 * CV)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "spacing_rhythm",
+      "dimension": "layout",
+      "score": 18.59,
+      "value": 0.4207,
+      "ideal": 0.0,
+      "deviation": 0.4207,
+      "confidence": 0.5285773277282715,
+      "formula": "100 * exp(-4.0 * CV)",
+      "status": "ok",
+      "details": {
+        "gap_count": 5
+      }
+    },
+    {
+      "name": "density",
+      "dimension": "layout",
+      "score": 13.51,
+      "value": 0.2299,
+      "ideal": 0.55,
+      "deviation": 0.3201,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "overlap",
+      "dimension": "layout",
+      "score": 24.83,
+      "value": 0.7517,
+      "ideal": 0.0,
+      "deviation": 0.7517,
+      "confidence": 0.5285773277282715,
+      "formula": "max(0, 100 - 100.0 * max_iou)",
+      "status": "ok",
+      "details": {
+        "pairs": [
+          {
+            "left": "text",
+            "right": "tag",
+            "iou": 0.7517
+          }
+        ]
+      }
+    },
+    {
+      "name": "overflow",
+      "dimension": "layout",
+      "score": 100.0,
+      "value": 0.0,
+      "ideal": 0.0,
+      "deviation": 0.0,
+      "confidence": 0.5285773277282715,
+      "formula": "max(0, 100 - 100.0 * overflow)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "color_harmony",
+      "dimension": "visual",
+      "score": 84.95,
+      "value": {
+        "color_count": 3,
+        "avg_lab_distance": 22.75
+      },
+      "ideal": {
+        "color_count": 4,
+        "avg_lab_distance": 32
+      },
+      "deviation": null,
+      "confidence": 0.5285773277282715,
+      "formula": "mean(Gaussian(color_count), Gaussian(avg_lab_distance))",
+      "status": "ok",
+      "details": {
+        "colors": [
+          [
+            254,
+            253,
+            254
+          ],
+          [
+            246,
+            241,
+            241
+          ],
+          [
+            223,
+            214,
+            213
+          ]
+        ],
+        "proportions": [
+          0.499875,
+          0.28475,
+          0.195
+        ]
+      }
+    },
+    {
+      "name": "contrast",
+      "dimension": "visual",
+      "score": 26.18,
+      "value": 3.636,
+      "ideal": 4.5,
+      "deviation": 0.864,
+      "confidence": 0.5285773277282715,
+      "formula": "Sigmoid(min_contrast)",
+      "status": "ok",
+      "details": {
+        "ratios": [
+          4.234,
+          3.636,
+          16.676,
+          16.686,
+          17.224,
+          17.224,
+          17.224,
+          17.224
+        ]
+      }
+    },
+    {
+      "name": "visual_focus",
+      "dimension": "visual",
+      "score": 99.18,
+      "value": 0.3969,
+      "ideal": 0.42,
+      "deviation": 0.0231,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian(max_visual_weight / sum_visual_weight)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "visual_balance",
+      "dimension": "visual",
+      "score": 82.93,
+      "value": 0.1713,
+      "ideal": 0.0,
+      "deviation": 0.1713,
+      "confidence": 0.5285773277282715,
+      "formula": "Euclidean distance + Gaussian",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "text_image_ratio",
+      "dimension": "visual",
+      "score": 34.8,
+      "value": 0.1868,
+      "ideal": 0.55,
+      "deviation": 0.3632,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian(text_area / occupied_area)",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "reading_flow",
+      "dimension": "visual",
+      "score": 67.97,
+      "value": {
+        "path_norm": 1.7795,
+        "backtracks": 0
+      },
+      "ideal": {
+        "path_norm": "low",
+        "backtracks": 0
+      },
+      "deviation": null,
+      "confidence": 0.5285773277282715,
+      "formula": "100 - path_penalty - backtrack_penalty",
+      "status": "ok",
+      "details": {}
+    },
+    {
+      "name": "hierarchy",
+      "dimension": "visual",
+      "score": 99.96,
+      "value": 0.3547,
+      "ideal": 0.35,
+      "deviation": 0.0047,
+      "confidence": 0.5285773277282715,
+      "formula": "Gaussian(Gini(text_visual_weight))",
+      "status": "ok",
+      "details": {}
+    }
+  ],
+  "required_texts": [],
+  "missing_texts": [],
+  "warnings": [
+    "信息覆盖率为 0：DSL 中没有提取到必要展示文字。"
+  ]
+}
