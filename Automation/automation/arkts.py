@@ -18,7 +18,7 @@ class ArkTsRunner:
     def __init__(self, config: AutomationConfig, hdc: HdcClient):
         self.config = config
         self.hdc = hdc
-        self._log = get_logger("arkts", sn=config.safe_sn or "", log_dir=config.output_dir, debug=config.debug)
+        self._log = get_logger("arkts", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
 
     def render(self, qid: str, dsl_path: Path) -> Path:
         self.ensure_arkts_workspace()

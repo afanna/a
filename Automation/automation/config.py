@@ -35,10 +35,13 @@ class AutomationConfig:
     screenshot_retries: int = 3
     screenshot_write_wait: float = 1
     context_clear_enabled: bool = False
-    context_clear_points: tuple[tuple[int, int], ...] = ()
+    context_clear_points: tuple[tuple[int, int], ...] = ((1150, 255),)
     context_clear_wait: float = 1
-    enable_card_crop: bool = False
-    enable_rule_check: bool = True
+    hilog_on_dsl_failure: bool = True
+    hilog_capture_seconds: float = 5
+    hilog_output_dir_override: Path | None = None
+    enable_card_crop: bool = True
+    enable_rule_check: bool = False
     card_crop_config: Path | None = None
     rule_check_config_dir: Path | None = None
     card_crop_debug: bool = False
@@ -59,6 +62,14 @@ class AutomationConfig:
         if self.safe_artifact_namespace:
             return self.project_root / "output" / self.safe_artifact_namespace
         return self.project_root / "output"
+
+    @property
+    def log_dir(self) -> Path:
+        base = self.project_root / "Automation" / ".work" / "logs"
+        namespace = self.safe_artifact_namespace or self.safe_sn
+        if namespace:
+            return base / namespace
+        return base
 
     @property
     def source_arkts_dir(self) -> Path:
@@ -113,11 +124,17 @@ class AutomationConfig:
 
     @property
     def card_output_dir(self) -> Path:
-        return self.output_dir / "card"
+        return self.output_dir
 
     @property
     def card_crop_debug_dir(self) -> Path:
-        return self.card_output_dir / "_debug"
+        return self.log_dir / "card_crop_debug"
+
+    @property
+    def hilog_output_dir(self) -> Path:
+        if self.hilog_output_dir_override:
+            return self.hilog_output_dir_override
+        return self.output_dir / "logs"
 
     @property
     def default_card_crop_config_path(self) -> Path:

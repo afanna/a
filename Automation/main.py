@@ -76,6 +76,7 @@ def add_common_arguments(
     parser.add_argument("--config", type=Path, default=config_default, help="Runtime JSON config path")
     parser.add_argument("--sn", default=default, help="Target device SN")
     parser.add_argument("--debug", action="store_true", default=default, help="Enable debug logging")
+    parser.add_argument("--enable-context-clear", dest="context_clear_enabled", action="store_true", default=default, help="Click configured points to clear Xiaoyi context after each DSL is saved")
 
     if include_card_crop_enable:
         parser.add_argument("--enable-card-crop", action="store_true", default=default, help="Crop card images after screenshots")
@@ -122,18 +123,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_arguments(parser, with_defaults=True)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    one = subparsers.add_parser("one", help="Send one query, extract DSL, render, and screenshot")
-    add_common_arguments(one, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
+    one = subparsers.add_parser("one", help="Send one query, extract DSL, render, screenshot, and crop")
+    add_common_arguments(one, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     one.add_argument("--qid", default="manual")
     one.add_argument("--query", required=True)
 
     from_file = subparsers.add_parser("one-from-file", help="Run one query from queries.jsonl by id")
-    add_common_arguments(from_file, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
+    add_common_arguments(from_file, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     from_file.add_argument("--qid", required=True)
     from_file.add_argument("--queries", type=Path)
 
-    batch = subparsers.add_parser("batch", help="Collect all DSLs first, then render all screenshots")
-    add_common_arguments(batch, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
+    batch = subparsers.add_parser("batch", help="Collect all DSLs first, then render screenshots and crop cards")
+    add_common_arguments(batch, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     batch.add_argument("--queries", type=Path)
 
     collect_dsl = subparsers.add_parser("collect-dsl", help="Send queries and save DSL files only")
@@ -144,8 +145,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_common_arguments(render_dsl_dir, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     render_dsl_dir.add_argument("--dsl-dir", type=Path, help="Directory containing *.jsonl DSL files")
     
-    parallel = subparsers.add_parser("parallel", help="Run the full query batch on multiple devices")
-    add_common_arguments(parallel, with_defaults=False, include_card_crop=True, include_card_crop_enable=True, include_aesthetics=True)
+    parallel = subparsers.add_parser("parallel", help="Run the render-and-crop batch on multiple devices")
+    add_common_arguments(parallel, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     parallel.add_argument("--queries", type=Path)
     parallel.add_argument("--devices", default="auto", help="Use 'auto' or a comma-separated SN list")
     parallel.add_argument("--max-workers", type=int, help="Maximum parallel devices")
@@ -197,10 +198,13 @@ def make_config(
         "screenshot_retries": value("screenshot_retries", 3),
         "screenshot_write_wait": value("screenshot_write_wait", 1),
         "context_clear_enabled": value("context_clear_enabled", False),
-        "context_clear_points": value("context_clear_points", ()),
+        "context_clear_points": value("context_clear_points", [{"x": 1150, "y": 255}]),
         "context_clear_wait": value("context_clear_wait", 1),
-        "enable_card_crop": value("enable_card_crop", False),
-        "enable_rule_check": value("enable_rule_check", True),
+        "hilog_on_dsl_failure": value("hilog_on_dsl_failure", True),
+        "hilog_capture_seconds": value("hilog_capture_seconds", 5),
+        "hilog_output_dir_override": value("hilog_output_dir", None),
+        "enable_card_crop": value("enable_card_crop", True),
+        "enable_rule_check": value("enable_rule_check", False),
         "card_crop_config": value("card_crop_config", DEFAULT_CARD_CROP_CONFIG),
         "rule_check_config_dir": value("rule_check_config_dir", None),
         "card_crop_debug": value("card_crop_debug", False),
@@ -317,7 +321,7 @@ def make_aesthetics_config(args: argparse.Namespace, config: dict, project_root:
     )
 
 def coerce_automation_values(values: dict) -> dict:
-    path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config", "rule_check_config_dir"}
+    path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config", "rule_check_config_dir", "hilog_output_dir_override"}
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
     if "context_clear_points" in coerced:
         coerced["context_clear_points"] = coerce_points(coerced["context_clear_points"])
@@ -392,13 +396,13 @@ def main() -> int:
                 print(f"Report generated: {report_path}")
         return 0
 
-    config, aesthetics_config = make_config(args)
+    config, _ = make_config(args)
     
     if args.command == "parallel":
-        return run_parallel(args, aesthetics_config)
+        return run_parallel(args)
     
     validate_device_target(config)
-    pipeline = AutomationPipeline(config, aesthetics_config)
+    pipeline = AutomationPipeline(config, None)
 
     if args.command == "one":
         result = pipeline.run_one(QueryCase(qid=args.qid, query=args.query))
@@ -407,7 +411,6 @@ def main() -> int:
             result.dsl_path,
             result.screenshot_path,
             result.card_path,
-            rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
             sn=config.safe_sn,
         )
         return 0
@@ -423,7 +426,6 @@ def main() -> int:
             result.dsl_path,
             result.screenshot_path,
             result.card_path,
-            rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
             sn=config.safe_sn,
         )
         return 0
@@ -436,13 +438,8 @@ def main() -> int:
                 result.dsl_path,
                 result.screenshot_path,
                 result.card_path,
-                rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
                 sn=config.safe_sn,
             )
-        if config.enable_rule_check:
-            print(f"Rule scoring done, report={config.rule_report_dir / 'report.html'}")
-        if aesthetics_config.enable:
-            print(f"Aesthetics scoring done, report={config.report_html_path}")
         return 0
 
     if args.command == "collect-dsl":
@@ -459,7 +456,6 @@ def main() -> int:
                 result.dsl_path,
                 result.screenshot_path,
                 result.card_path,
-                rule_report_path=config.rule_report_dir_for(result.qid) / "report.html" if result.rule_result else None,
                 sn=config.safe_sn,
             )
         return 0
@@ -501,7 +497,7 @@ def run_crop_card(args: argparse.Namespace) -> int:
 
     return 1 if failed else 0
 
-def run_parallel(args: argparse.Namespace, aesthetics_config: AestheticsConfig) -> int:
+def run_parallel(args: argparse.Namespace) -> int:
     devices = resolve_devices(args.devices, args.hdc)
     max_workers = args.max_workers or len(devices)
     if max_workers < 1:
@@ -513,8 +509,8 @@ def run_parallel(args: argparse.Namespace, aesthetics_config: AestheticsConfig) 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_sn = {}
         for sn in devices:
-            config, aest_config = make_config(args, sn=sn, artifact_namespace=sn)
-            pipeline = AutomationPipeline(config, aest_config if aesthetics_config.enable else None)
+            config, _ = make_config(args, sn=sn, artifact_namespace=sn)
+            pipeline = AutomationPipeline(config, None)
             future = executor.submit(pipeline.run_batch, args.queries)
             future_to_sn[future] = sn
         
@@ -523,8 +519,6 @@ def run_parallel(args: argparse.Namespace, aesthetics_config: AestheticsConfig) 
             try:
                 results = future.result()
                 print(f"Device[{sn}] done, processed={len(results)}")
-                if aesthetics_config.enable:
-                    print(f"Device[{sn}] report={results[0] and results[0].screenshot_path.parent / 'report.html' or ''}")
             except Exception as e:
                 failed = True
                 print(f"Device[{sn}] failed: {e}")
@@ -565,16 +559,14 @@ def resolve_devices(raw_devices: str, hdc: str) -> list[str]:
 def print_result(
     qid: str,
     dsl_path: Path,
-    screenshot_path: Path,
+    _screenshot_path: Path,
     card_path: Path | None = None,
     *,
-    rule_report_path: Path | None = None,
     sn: str | None = None,
 ) -> None:
     prefix = f"[{sn}] " if sn else ""
-    card = f" CARD={card_path}" if card_path else ""
-    rule = f" RULE_REPORT={rule_report_path}" if rule_report_path else ""
-    print(f"{prefix}{qid}: DSL={dsl_path} SCREENSHOT={screenshot_path}{card}{rule}")
+    card = str(card_path) if card_path else "[crop failed]"
+    print(f"{prefix}{qid}: DSL={dsl_path} CARD={card}")
 
 if __name__ == "__main__":
     raise SystemExit(main())

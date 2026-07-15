@@ -82,6 +82,7 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 `sample` 当前按 JSON 数组文件校验并复制到 ArkTS rawfile 目录。
 - 截图文件：`output/{qid}.jpeg`
 - 裁切卡片：`output/card/{qid}.png`
+- DSL 最终失败 hilog：`output/logs/{timestamp}-{qid}.txt`
 - 纯规则评分报告：`output/reports/report.html`
 - 单条详情报告：`output/reports/{qid}/report.html`
 - 纯规则评分结果：`output/reports/summary.json`
@@ -92,7 +93,20 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 - ArkTS 工作副本：`Automation/.work/devices/{safe_sn}/ArkTs`
 - 截图文件：`output/{safe_sn}/{qid}.jpeg`
 - 裁切卡片：`output/{safe_sn}/card/{qid}.png`
+- DSL 最终失败 hilog：`output/{safe_sn}/logs/{timestamp}-{qid}.txt`
 - 纯规则评分报告：`output/{safe_sn}/reports/report.html`
+
+## DSL 失败日志
+
+当某条 query 连续重试后仍没有生成 DSL 时，自动化会抓取一段设备 hilog，便于后续分析小艺侧失败原因。默认抓取 5 秒，文件名为 `时间戳-query名.txt`，默认保存到 `output/logs`。
+
+配置位置：`Automation/config/automation.json`
+
+```json
+"hilog_on_dsl_failure": true,
+"hilog_capture_seconds": 5,
+"hilog_output_dir": null
+```
 
 ## 常用命令
 

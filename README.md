@@ -1,408 +1,446 @@
-﻿# 小艺UI渲染自动化测试工具
-> 全链路零人工干预：发送Query → 自动提取DSL → 多设备并行构建渲染 → 自动截图 → AI审美打分 → 生成可视化报告，大幅提升UI测试和DSL效果验证效率。
+# Xiaoyi UI Render Automation
 
-## ✨ 核心功能亮点
-| 功能 | 价值 |
-|------|------|
-| 🚀 **全链路自动化闭环** | 从输入Query到生成最终报告全程自动执行，不需要人工操作设备、复制DSL、构建安装、截图打分 |
-| 📱 **多设备并行测试** | 支持多台鸿蒙设备同时跑全量用例，每个设备独立环境互不干扰，N台设备并行总耗时和单台一样 |
-| 🎨 **AI自动审美评分** | 集成字节豆包多模态大模型，按照设计师标准自动对渲染结果打分，输出多维度评分和优化建议，不用人工一个个看效果 |
-| 🧩 **零侵入兼容现有流程** | 完全不修改原有ArkTS开发流程，不用改代码、不用换构建工具，现有项目直接接入即可用 |
-| 🔍 **结果可追溯可对比** | 每个Query的DSL、截图、打分结果、错误日志按设备隔离归档，方便排查问题和版本效果对比 |
-| ⚡ **智能容错降级** | 单台设备/单条用例失败不影响整体流程，API调用失败自动重试，支持失败跳过/终止两种模式 |
-| 📋 **全链路日志追踪** | 每个模块独立埋点，按设备SN隔离日志文件，控制台实时进度+文件完整追溯，DEBUG模式记录每次HDC命令细节 |
+这是一个用于 HarmonyOS 卡片生成链路的数据采集和渲染自动化工具。
 
-## 🚀 快速开始
-### 1. 环境准备
+当前主流程已经调整为：
+
+```text
+Query -> 小艺生成 DSL -> 提取 DSL -> ArkTS 渲染 -> 截图 -> 裁切卡片 -> 停止
+```
+
+普通自动化流程不再自动执行规则评分或视觉模型评分。最终 `output` 目录只保留裁切后的卡片图，文件名使用 query id，例如：
+
+```text
+output/weather_card_01.png
+```
+
+完整截图只作为中间产物使用，裁切完成后会自动删除。日志、裁切 debug 图和临时工作目录会写入 `Automation/.work/`，避免污染最终数据目录。
+
+## 适用场景
+
+- 批量向小艺发送 query，提取生成的 DSL。
+- 使用 ArkTS 工程自动渲染 DSL。
+- 从整屏截图中裁切出卡片图片。
+- 为后续规则评分、视觉教师评分、规则标定迭代准备干净数据。
+- 多设备并行采集 DSL 和卡片图片。
+
+## 环境要求
+
 - Python 3.10+
-- DevEco Studio 已正确安装，配置好HarmonyOS SDK和签名，项目能正常构建HAP
-- HDC工具已加入环境变量，测试设备已开启调试模式，`hdc list targets`能看到设备
-- 安装依赖：
-  ```powershell
-  pip install httpx
-  ```
+- DevEco Studio，本机默认路径参考 `Automation/config/automation.json`
+- HDC 可用，并且设备或模拟器已开启调试
+- HarmonyOS ArkTS 工程可正常构建、签名、安装
 
-### 2. 基础配置（默认已经配好，DevEco装在D盘不用改）
-在`Automation/automation/config.py`顶部配置本地DevEco路径：
-```python
-LOCAL_DEVECO_STUDIO_HOME = Path("D:/DevEco Studio")
+验证环境：
+
+```powershell
+python --version
+hdc list targets
 ```
 
-### 3. 准备测试用例
-在项目根目录新建`queries.jsonl`，每行一个测试用例，格式：
+## 快速开始
+
+### 1. 准备 query
+
+在项目根目录维护 `queries.jsonl`，每行一个用例：
+
 ```json
-{"qid": "weather_card_01", "query": "帮我生成一个天气预报卡片，显示未来3天天气，要有温度、降水概率、风力信息"}
-{"qid": "todo_list_01", "query": "帮我生成一个待办事项列表，支持添加、完成、删除待办，显示已完成/未完成统计"}
+{"qid": "weather_card_01", "query": "生成一个天气卡片，展示今天温度、天气状态和未来三小时趋势"}
+{"qid": "todo_card_01", "query": "生成一个待办事项卡片，展示今天的三个待办和完成进度"}
 ```
 
-### 4. 快速运行
-#### 👉 单设备批量跑所有用例+自动裁切+自动打分
+`qid` 会作为最终卡片图片文件名的一部分，请保持唯一、稳定、可读。
+
+### 2. 单条运行
+
 ```powershell
-python Automation\main.py batch `
-    --enable-card-crop `
-    --enable-aesthetics `
-    --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" `
-    --aesthetics-api-key "你的API密钥"
+python Automation\main.py one --qid weather_card_01 --query "生成一个天气卡片"
 ```
 
-#### 👉 多设备自动发现并行跑所有用例
+成功后主要产物：
+
+```text
+dsl/weather_card_01.jsonl
+output/weather_card_01.png
+```
+
+### 3. 从 queries.jsonl 跑单条
+
 ```powershell
-python Automation\main.py parallel `
-    --devices auto `
-    --enable-card-crop `
-    --enable-aesthetics `
-    --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" `
-    --aesthetics-api-key "你的API密钥"
+python Automation\main.py one-from-file --qid weather_card_01
 ```
 
-#### 👉 单独裁切已有截图里的卡片
+### 4. 批量运行
+
 ```powershell
-python Automation\main.py crop-card `
-    --input ./output `
-    --output ./output/cards `
-    --card-crop-debug
-```
-
-#### 👉 单独给已有截图批量打分生成报告
-```powershell
-python Automation\main.py aesthetics `
-    --input ./output `
-    --output ./output `
-    --aesthetics-base-url "https://ark.cn-beijing.volces.com/api/plan/v3" `
-    --aesthetics-api-key "你的API密钥"
-```
-
-## 📖 命令说明
-### 日常公共参数
-默认命令行只保留高频参数；超时、构建路径、截图重试、模型温度等高级项统一放到 `Automation/config/automation.json` 里维护。
-
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--config` | 运行配置JSON路径 | `Automation/config/automation.json` |
-| `--sn` | 指定运行的设备SN，单台设备时不用传 | 不指定默认用唯一在线设备 |
-| `--enable-card-crop` | 截图后自动裁切卡片图，输出 `{qid}_card.png` | 关闭 |
-| `--card-crop-debug` | 输出红框标注调试图到 `_debug/` | 关闭 |
-| `--enable-aesthetics` | 开启UI审美打分；自动化流程中会使用裁切后的卡片图评分 | 关闭 |
-| `--aesthetics-base-url` | 打分模型API地址 | 读取配置或环境变量 |
-| `--aesthetics-api-key` | 打分模型API密钥 | 读取配置或环境变量 |
-| `--debug` | 开启DEBUG日志 | 关闭 |
-
----
-
-### 1. `one` - 运行单个测试用例
-**用途**：快速验证单个Query的效果
-```powershell
-python Automation\main.py one `
-    --qid test_weather `
-    --query "帮我生成一个天气预报卡片" `
-    --enable-aesthetics
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--qid` | 测试用例唯一ID | 否，默认`manual` |
-| `--query` | 要发送给小艺的Query内容 | 是 |
-
----
-
-### 2. `one-from-file` - 运行queries.jsonl里的单个用例
-**用途**：单独重跑失败的用例
-```powershell
-python Automation\main.py one-from-file `
-    --qid weather_card_01 `
-    --enable-aesthetics
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--qid` | 要运行的用例ID | 是 |
-| `--queries` | 指定用例文件路径 | 否，默认`queries.jsonl` |
-
----
-
-### 3. `batch` - 单设备批量跑所有用例
-**用途**：单台设备全量测试
-```powershell
-python Automation\main.py batch `
-    --queries ./my_queries.jsonl `
-    --enable-aesthetics
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--queries` | 指定用例文件路径 | 否，默认`queries.jsonl` |
-
----
-
-### 4. `parallel` - 多设备并行跑所有用例
-**用途**：多设备兼容性测试，多台设备同时跑全量用例
-```powershell
-python Automation\main.py parallel `
-    --devices auto `
-    --max-workers 3 `
-    --enable-aesthetics
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--devices` | 设备列表，`auto`自动发现所有在线设备，或者逗号分隔的SN列表，比如`SN1,SN2,SN3` | 否，默认`auto` |
-| `--max-workers` | 最大并行设备数，不要超过实际在线设备数 | 否，默认等于设备数 |
-| `--queries` | 指定用例文件路径 | 否，默认`queries.jsonl` |
-
----
-
-### 5. `aesthetics` - 独立对已有截图打分
-**用途**：不用跑完整流程，直接给已有截图批量打分生成报告
-```powershell
-# 批量给目录下所有截图打分
-python Automation\main.py aesthetics `
-    --input ./output `
-    --output ./output `
-    --sn 设备SN
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--input` | 输入图片目录或者单张图片路径 | 是 |
-| `--output` | 输出目录或者结果文件路径 | 否，默认和输入同目录 |
-| `--skip-report` | 跳过生成HTML报告，只输出JSON结果 | 否，默认生成报告 |
-| `--sn` | 设备SN，用于结果关联 | 否 |
-
----
-
-### 6. `crop-card` - 独立裁切已有截图
-**用途**：不用跑完整自动化，直接从已有整屏截图中裁切卡片区域
-```powershell
-# 裁切单张截图
-python Automation\main.py crop-card `
-    --input ./output/q1.jpeg `
-    --output ./output/cards
-
-# 裁切目录内所有png/jpg/jpeg图片，并输出debug标注图
-python Automation\main.py crop-card `
-    --input ./output `
-    --output ./output/cards `
-    --card-crop-debug
-```
-| 参数 | 说明 | 必填 |
-|------|------|------|
-| `--input` | 输入截图文件或者截图目录 | 是 |
-| `--output` | 输出目录；单文件输入时也可以指定输出文件 | 否，默认和输入同目录 |
-| `--card-crop-debug` | 输出红框标注图，方便检查裁切位置 | 否 |
-
-## 📏 UI审美评分维度说明
-总分按照8分制换算为100分，6个维度加权计算，完全符合设计行业通用评分标准：
-
-| 维度名称 | 权重 | 判断标准 |
-|---------|------|----------|
-| **视觉冲击/原创性** | 30% | 最高权重，判断界面是否有记忆点、明确的主题气质和非模板化表达<br>✅ 高分：有强中心视觉、稳定氛围、原创构图、品牌感，和AI生成的通用模板有明显区别<br>❌ 低分：默认模板风格、简单卡片堆砌、毫无设计感，和常见demo没有区别 |
-| **构图/层级** | 20% | 判断页面的信息组织、视觉重心、空间节奏和阅读路径是否合理<br>✅ 高分：首屏主次关系清晰、核心内容突出、导航/内容/操作区分明、布局有节奏感<br>❌ 低分：布局混乱、层级缺失、核心内容难以定位、大面积空白/拥挤，像未完成的原型 |
-| **字体排版** | 15% | 判断字体选择、字号层级、字重、行高、对齐和文本排版是否形成稳定系统<br>✅ 高分：字体选择符合产品气质、字号层级清晰、对齐统一、排版干净有设计感<br>❌ 低分：系统默认字体痕迹重、字号/字重混乱、文字拥挤/错位/重叠、可读性差 |
-| **颜色/材质** | 15% | 判断配色、明暗关系、材质质感、光影、边框、阴影和背景处理是否统一<br>✅ 高分：颜色系统成熟、材质光影统一、配色协调有主题感，没有廉价渐变/彩虹色<br>❌ 低分：配色随意/混乱、阴影生硬、材质粗糙、大面积高饱和色块堆砌，视觉刺眼 |
-| **细节/完成度** | 15% | 判断整体细节处理和完成度，是否达到产品级设计标准<br>✅ 高分：图标/按钮/卡片风格统一、圆角/间距/边距规范统一、细节精致，像完整产品<br>❌ 低分：元素风格不统一、圆角大小不一、间距忽大忽小、细节粗糙，像快速拼凑的半成品 |
-| **基础可用性** | 5% | 最低门槛，判断静态截图的可读、可识别性，不属于审美维度<br>✅ 高分：信息清晰、控件可识别、结构稳定，没有明显遮挡/错位/溢出<br>❌ 低分：核心信息不可读、按钮/输入/导航被遮挡/错位、布局严重影响理解 |
-
-## 📂 输出目录结构
-所有结果按设备SN隔离，互不干扰，方便追溯：
-```
-项目根目录/
-├── dsl/                            # DSL提取结果目录
-│   └── {设备SN}/                   # 按设备隔离
-│       ├── {SN}_{qid}.jsonl        # 单个Query提取的DSL文件
-│       └── ...
-└── output/                         # 渲染和打分结果目录
-    └── {设备SN}/                   # 按设备隔离
-        ├── {SN}_{qid}.jpeg         # 单个Query的渲染截图
-        ├── {SN}_{qid}_card.png     # 裁切后的卡片图
-        ├── _debug/                 # 裁切debug标注图，仅 --card-crop-debug 时生成
-        ├── scores.jsonl            # 结构化打分结果，包含所有维度得分、问题、建议
-        └── report.html             # 可视化打分报告，包含所有截图和评分详情
-```
-
-## 📋 日志系统
-
-### 日志输出位置
-- **控制台**：实时显示进度和关键事件（INFO/WARNING/ERROR）
-- **文件**：`output/{设备SN}/pipeline.log`，完整记录所有事件，用于事后排查
-
-### 日志格式
-```
-2026-07-06 15:30:00 [SN123456] xiaoyi INFO collect_dsl_for_query start: qid=q1
-2026-07-06 15:30:45 [SN123456] xiaoyi INFO _wait_and_extract: DSL found, reply_len=3421
-2026-07-06 15:30:45 [SN123456] arkts INFO render start: qid=q1
-2026-07-06 15:31:10 [SN123456] arkts INFO hvigor assembleHap done: 22.3s
-2026-07-06 15:31:15 [SN123456] arkts INFO hdc file send done: 4.8s
-2026-07-06 15:31:20 [SN123456] arkts INFO bm install done: 3.2s
-2026-07-06 15:31:25 [SN123456] arkts INFO render done: qid=q1 total=40.2s screenshot=q1.jpeg
-2026-07-06 15:31:25 [SN123456] pipeline INFO run_one done: qid=q1 total=85.3s
-```
-
-### 日志级别
-| 级别 | 说明 | 输出位置 | 示例 |
-|------|------|---------|------|
-| INFO | 阶段开始/结束、耗时、正常状态变化 | 控制台+文件 | `render done: qid=q1 total=40.2s` |
-| WARNING | 重试、降级策略、非致命异常 | 控制台+文件 | `snapshot_display retry 2/3` |
-| ERROR | 失败、超时、致命错误 | 控制台+文件 | `HDC command failed: ...` |
-| DEBUG | 每次HDC命令、每次poll、完整响应 | 仅文件（--debug开启） | `run: list targets -> rc=0` |
-
-### 各模块埋点覆盖
-| 模块 | 埋点位置 | 定位的问题 |
-|------|---------|-----------|
-| hdc.py | run() 超时/失败、snapshot_display 重试/成功/文件太小 | 设备连接异常、截图文件异常 |
-| xiaoyi.py | wait_ready 超时、send_query 控件定位失败、collect_dsl_for_query 重试、DSL找到、scroll_scan 兜底 | 小艺界面异常、DSL提取失败 |
-| arkts.py | render 开始/结束耗时、hvigor clean/assembleHap 各阶段耗时、file send 推送耗时、bm install 耗时、ability start | 编译失败、安装失败、推送慢 |
-| pipeline.py | run_one/run_batch 开始/结束、各环节总耗时 | 整体流程耗时分析 |
-| main.py | 设备发现、并行调度 | 多设备并行调度异常 |
-
-### 使用方式
-```powershell
-# 正常模式：控制台看进度，日志文件存到 output/{SN}/pipeline.log
 python Automation\main.py batch
-
-# DEBUG 模式：日志文件额外记录所有 HDC 命令、poll 细节
-python Automation\main.py batch --debug
 ```
 
-### 排查问题流程
-1. 打开 `output/{设备SN}/pipeline.log`
-2. 搜索 `ERROR` 定位致命错误
-3. 搜索 `WARNING` 查看重试和降级
-4. 如果信息不够，加 `--debug` 重新跑，日志文件会记录每次 HDC 命令和 poll 细节
+指定 query 文件：
 
----
-
-## 🏗️ 项目目录结构
-```
-├── Automation/                     # 自动化核心代码
-│   ├── automation/                 # 核心模块
-│   │   ├── config.py               # 全局配置
-│   │   ├── hdc.py                  # HDC命令封装，设备操作
-│   │   ├── xiaoyi.py               # 小艺交互、DSL自动提取
-│   │   ├── arkts.py                # ArkTS自动构建、签名、安装、启动、截图
-│   │   ├── pipeline.py             # 流程编排，串起各个环节
-│   │   ├── dsl.py                  # DSL解析、修复、校验
-│   │   ├── queries.py              # 测试用例文件读取
-│   │   └── ui_tree.py              # UI树解析、控件定位
-│   │   └── logger.py                # 日志模块，统一日志格式和输出
-│   ├── main.py                     # 命令行入口
-│   └── .work/                      # 临时工作目录，自动生成，包括每个设备的ArkTS副本、缓存
-├── visual_aesthetics/              # AI审美打分模块
-│   ├── core/                       # 核心评分逻辑、评分标准、类型定义
-│   ├── models/                     # 大模型调用封装，目前支持字节豆包多模态
-│   ├── utils/                      # 工具类：缓存、图片处理
-│   ├── reports/                    # 可视化报告生成器
-│   ├── config.py                   # 打分模块配置
-│   └── judge.py                    # 对外统一接口
-├── ArkTs/                          # ArkTS项目源码，团队维护，自动化流程作为模板复制到各设备工作目录
-├── queries.jsonl                   # 测试用例文件，自己添加
-└── README.md                       # 项目文档
+```powershell
+python Automation\main.py batch --queries .\queries.jsonl
 ```
 
-## ⚙️ 配置说明
-### 配置优先级（从高到低）
-1. **命令行参数** → 2. **`Automation/config/automation.json`** → 3. **环境变量/代码默认值**
+### 5. 多设备并行
 
-### 运行配置文件
-日常不常改的高级参数统一放在 `Automation/config/automation.json`。这个配置文件支持 `//` 和 `/* ... */` 注释，方便直接在文件里看说明：
+自动发现在线设备：
+
+```powershell
+python Automation\main.py parallel --devices auto
+```
+
+指定设备：
+
+```powershell
+python Automation\main.py parallel --devices SN1,SN2 --max-workers 2
+```
+
+多设备模式下产物会按设备隔离，避免互相覆盖。
+
+## 命令说明
+
+### `one`
+
+发送一条 query，提取 DSL，渲染截图，并裁切卡片。
+
+```powershell
+python Automation\main.py one --qid test_weather --query "生成一个天气卡片"
+```
+
+常用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `--qid` | 用例 ID，默认 `manual` |
+| `--query` | 发送给小艺的 query，必填 |
+| `--sn` | 指定设备 SN |
+| `--debug` | 开启详细日志 |
+
+### `one-from-file`
+
+从 `queries.jsonl` 中按 `qid` 找到一条用例并运行。
+
+```powershell
+python Automation\main.py one-from-file --qid weather_card_01
+```
+
+### `batch`
+
+批量运行 query 文件中的全部用例。
+
+```powershell
+python Automation\main.py batch --queries .\queries.jsonl
+```
+
+### `collect-dsl`
+
+只发送 query 并保存 DSL，不渲染、不截图、不裁切。
+
+```powershell
+python Automation\main.py collect-dsl --queries .\queries.jsonl
+```
+
+### `render-dsl-dir`
+
+渲染已有 DSL 文件，截图后裁切卡片。
+
+```powershell
+python Automation\main.py render-dsl-dir --dsl-dir .\dsl
+```
+
+### `crop-card`
+
+单独裁切已有截图。这个命令适合调试裁切坐标。
+
+```powershell
+python Automation\main.py crop-card --input .\output\raw.jpeg --output .\output\raw_card.png --card-crop-debug
+```
+
+也可以裁切目录内所有图片：
+
+```powershell
+python Automation\main.py crop-card --input .\output --output .\output\cards --card-crop-debug
+```
+
+### `aesthetics`
+
+独立视觉评分命令。它不会在普通自动化流程中自动执行，只用于你手动对已有图片生成视觉评分报告。
+
+```powershell
+python Automation\main.py aesthetics `
+  --input .\output `
+  --output .\output `
+  --enable-aesthetics `
+  --aesthetics-base-url "你的模型接口地址" `
+  --aesthetics-api-key "你的API Key"
+```
+
+不要把 API key 写入代码或提交到 Git。
+
+## 输出目录
+
+单设备默认输出：
+
+```text
+项目根目录/
+├── dsl/
+│   └── {qid}.jsonl                 # 提取到的 DSL
+├── output/
+│   └── {qid}.png                   # 裁切后的卡片图，最终保留
+└── Automation/
+    └── .work/
+        ├── logs/
+        │   └── pipeline.log        # 运行日志
+        ├── logs/card_crop_debug/   # 裁切红框 debug 图，仅开启 debug 时生成
+        └── devices/                # 多设备 ArkTS 工作副本
+```
+
+多设备或指定 artifact namespace 时，会按设备 SN 隔离，例如：
+
+```text
+dsl/{SN}/{SN}_{qid}.jsonl
+output/{SN}/{SN}_{qid}.png
+Automation/.work/logs/{SN}/pipeline.log
+```
+
+## 裁切坐标配置
+
+裁切配置文件：
+
+```text
+Automation/config/card_crop.json
+```
+
+当前已经改成绝对坐标模式，可以直接填写开发者选项里看到的屏幕坐标。
+
+核心字段：
 
 ```json
 {
-  "automation": {
-    "deveco_sdk_home": "D:/DevEco Studio/sdk",
-    "java_home": "D:/DevEco Studio/jbr",
-    "render_wait": 5,
-    "build_timeout": 300,
-    "screenshot_retries": 3,
-    "context_clear_enabled": false,
-    "context_clear_points": [],
-    "context_clear_wait": 1,
-    "enable_card_crop": false,
-    "card_crop_config": "Automation/config/card_crop.json"
-  },
-  "aesthetics": {
-    "enable": false,
-    "base_url": "",
-    "api_key": "",
-    "model": "doubao-seed-2-0-lite",
-    "timeout": 360,
-    "max_retries": 3,
-    "max_workers": 2
-  }
+  "crop_box_2x2": { "x1": 364, "y1": 97, "x2": 920, "y2": 577 },
+  "crop_box_2x4": { "x1": 95, "y1": 97, "x2": 1192, "y2": 577 },
+  "detect_box": { "x1": 0, "y1": 97, "x2": 1280, "y2": 577 },
+  "card_type": "auto"
 }
 ```
 
-例如你想长期默认开启裁切，可以直接把：
-```json
-"enable_card_crop": true
+含义：
+
+| 字段 | 说明 |
+| --- | --- |
+| `crop_box_2x2` | 2x2 小卡片裁切框 |
+| `crop_box_2x4` | 2x4 宽卡片裁切框 |
+| `detect_box` | `auto` 模式下判断卡片类型的检测区域 |
+| `card_type` | `auto`、`2x2`、`2x4` |
+
+坐标说明：
+
+```text
+(x1, y1) = 左上角
+(x2, y2) = 右下角
 ```
 
-卡片裁切坐标和阈值单独放在 `Automation/config/card_crop.json`，后续渲染模块位置变化时只改这个 JSON。
+如果你想强制裁 2x4：
 
-如果需要在每条 query 提取 DSL 后清理小艺上下文，可以打开 `context_clear_enabled` 并在 `context_clear_points` 里按顺序填写清理流程所需的屏幕绝对坐标。自动化会在 DSL 保存成功后依次点击这些坐标，每次点击后等待 `context_clear_wait` 秒；点击失败只记录日志，不会中断后续用例。
+```json
+"card_type": "2x4"
+```
 
-两次点击的配置示例：
+如果你想让程序自动判断：
+
+```json
+"card_type": "auto"
+```
+
+配置文件支持 `//` 和 `/* ... */` 注释，也兼容 UTF-8 BOM。
+
+## 运行配置
+
+主配置文件：
+
+```text
+Automation/config/automation.json
+```
+
+配置优先级：
+
+```text
+命令行参数 > Automation/config/automation.json > 环境变量或代码默认值
+```
+
+当前关键默认值：
+
+| 配置 | 当前默认 | 说明 |
+| --- | --- | --- |
+| `context_clear_enabled` | `false` | 是否在每条 DSL 保存成功后清理小艺上下文 |
+| `context_clear_points` | `[{ "x": 1150, "y": 255 }]` | 清理上下文点击坐标 |
+| `enable_card_crop` | `true` | 截图后自动裁切卡片 |
+| `enable_rule_check` | `false` | 普通流程不执行规则评分 |
+| `card_crop_config` | `Automation/config/card_crop.json` | 裁切坐标配置 |
+
+上下文清理说明：
+
+默认不会清理上下文。需要开启时，有两种方式。
+
+方式一，临时通过命令行开启：
+
+```powershell
+python Automation\main.py one --qid weather_card_01 --query "生成一个天气卡片" --enable-context-clear
+```
+
+方式二，在 `Automation/config/automation.json` 中长期开启：
+
 ```json
 "context_clear_enabled": true,
-"context_clear_points": [
-  {"x": 980, "y": 180},
-  {"x": 720, "y": 1320}
-],
+"context_clear_points": [{ "x": 1150, "y": 255 }],
 "context_clear_wait": 1
 ```
 
-### 常用环境变量，配置后不用每次传参数
-```powershell
-# DevEco全局配置
-$env:DEVECO_SDK_HOME = "D:/DevEco Studio/sdk"
-$env:JAVA_HOME = "D:/DevEco Studio/jbr"
+这表示每条 query 的 DSL 保存成功后，程序会点击屏幕坐标 `(1150, 255)` 来清理小艺上下文。
 
-# 审美打分全局配置，配置后不用每次传密钥
-$env:AESTHETICS_BASE_URL = "https://ark.cn-beijing.volces.com/api/plan/v3"
-$env:AESTHETICS_API_KEY = "你的API密钥"
-$env:AESTHETICS_MODEL = "doubao-seed-2-0-lite"
+## 日志
+
+日志默认写入：
+
+```text
+Automation/.work/logs/pipeline.log
 ```
 
-## ❓ 常见问题排查
-### Q1：运行提示找不到设备
-A：检查设备是否开启调试模式，HDC是否能识别设备：
+多设备时：
+
+```text
+Automation/.work/logs/{SN}/pipeline.log
+```
+
+开启详细日志：
+
+```powershell
+python Automation\main.py batch --debug
+```
+
+排查问题时优先搜索：
+
+```text
+ERROR
+WARNING
+```
+
+## 项目结构
+
+```text
+Automation-screenshot/
+├── Automation/
+│   ├── main.py                     # CLI 入口
+│   ├── automation/
+│   │   ├── pipeline.py             # 主流程编排
+│   │   ├── xiaoyi.py               # 小艺交互与 DSL 提取
+│   │   ├── arkts.py                # ArkTS 构建、安装、启动、截图
+│   │   ├── card_crop.py            # 卡片裁切
+│   │   ├── hdc.py                  # HDC 封装
+│   │   ├── dsl.py                  # DSL 解析与保存
+│   │   ├── queries.py              # query 文件读取
+│   │   └── logger.py               # 日志
+│   ├── config/
+│   │   ├── automation.json         # 主运行配置
+│   │   └── card_crop.json          # 裁切坐标配置
+│   └── .work/                      # 临时工作目录和日志
+├── ArkTs/                          # HarmonyOS ArkTS 渲染工程模板
+├── Aesthetic_Rule_Check/           # 规则评分项目，普通流程不自动调用
+├── visual_aesthetics/              # 独立视觉评分模块
+├── dsl/                            # DSL 产物
+├── output/                         # 最终卡片图片
+├── queries.jsonl                   # query 用例库
+└── README.md
+```
+
+## 常见问题
+
+### 找不到设备
+
 ```powershell
 hdc list targets
 ```
-如果识别不到，重启HDC服务：
-```powershell
-hdc kill && hdc start -r
+
+如果没有设备，检查 USB 调试、模拟器状态、HDC 环境变量。
+
+### DSL 提取失败
+
+优先检查：
+
+- 小艺是否处于可输入状态
+- query 是否已经发送成功
+- 网络是否导致小艺回复超时
+- `Automation/.work/logs/pipeline.log` 中是否有 `ERROR`
+
+必要时可以在 `Automation/config/automation.json` 中调大：
+
+```json
+"post_query_wait": 30,
+"query_attempt_timeout": 90,
+"query_max_attempts": 3
 ```
 
-### Q2：ArkTS构建失败
-A：先手动打开ArkTS项目，执行一次构建，确保能正常生成签名HAP，常见原因：
-1. DevEco签名配置错误
-2. 依赖没有安装
-3. 磁盘空间不足
-4. 看`Automation/.work/{SN}/ArkTs/build`目录下的构建日志排查具体错误
+### 裁切位置不对
 
-### Q3：DSL提取失败
-A：检查小艺是否已经打开，输入法是否正常弹出，常见原因：
-1. 小艺没有启动或者被后台杀死
-2. 屏幕亮度太低导致UI树识别失败
-3. 网络不好小艺回复超时，可以在 `Automation/config/automation.json` 中加大 `query_attempt_timeout`
+打开 `Automation/config/card_crop.json`，按开发者选项看到的坐标修改：
 
-### Q4：审美打分API调用失败
-A：检查：
-1. API地址和密钥是否正确
-2. 网络是否能访问火山方舟API
-3. 模型是否已经开通权限
-4. 可以在 `Automation/config/automation.json` 中加大 `aesthetics.timeout` 和 `aesthetics.max_retries`
-
-### Q5：如何排查运行中断的原因
-A：查看对应设备的日志文件 `output/{设备SN}/pipeline.log`，搜索 `ERROR` 和 `WARNING` 定位问题。如果信息不够，加 `--debug` 参数重新运行，日志文件会记录每次 HDC 命令和 poll 细节。
-
-### Q6：多设备运行时某台设备失败
-A：不会影响其他设备运行，失败设备的错误信息会单独打印，其他设备继续执行。可以单独指定失败设备的SN重新运行：
-```powershell
-python Automation\main.py batch --sn 失败设备的SN
+```json
+"crop_box_2x2": { "x1": 364, "y1": 97, "x2": 920, "y2": 577 }
 ```
 
-## 🔮 后续迭代方向
-1. 支持更多大模型：GPT-4o、Claude 3 Opus、文心一言等，可切换对比打分结果
-2. 支持版本对比：自动对比同一Query在不同版本DSL的得分差异，生成版本迭代效果报告
-3. 支持阈值告警：得分低于指定阈值自动告警，推送到企业微信/飞书
-4. 支持自定义评分模板：针对不同业务场景配置不同的评分维度和权重
-5. 支持性能数据采集：自动采集启动时间、帧率、内存占用等性能指标
+调试时运行：
 
-## 📄 许可证
-内部团队使用，禁止外传。
+```powershell
+python Automation\main.py crop-card --input .\output\raw.jpeg --output .\output\raw_card.png --card-crop-debug
+```
+
+红框 debug 图会帮助确认裁切框位置。
+
+### 为什么没有评分报告
+
+这是当前设计：普通流程只负责生成 DSL 和裁切卡片，不再自动评分。
+
+后续迭代要做“视觉教师报告 + 规则报告 + 自动比对 + 参数建议”时，建议在新项目或独立迭代脚本里消费这里生成的：
+
+```text
+dsl/
+output/
+queries.jsonl
+```
+
+### 中间截图去哪了
+
+中间截图用于裁切，裁切完成后会删除。最终只保留：
+
+```text
+output/{qid}.png
+```
+
+## 开发验证
+
+修改 Python 代码后至少运行：
+
+```powershell
+python -m py_compile Automation\main.py Automation\automation\pipeline.py Automation\automation\arkts.py Automation\automation\hdc.py Automation\automation\xiaoyi.py Automation\automation\card_crop.py
+```
+
+有设备时再跑最小链路：
+
+```powershell
+python Automation\main.py one --qid test --query "生成一个测试卡片"
+```
+
+成功信号：
+
+- `dsl/test.jsonl` 存在
+- `output/test.png` 存在
+- `Automation/.work/logs/pipeline.log` 没有致命错误
+
+## 注意事项
+
+- 不要提交 API key、`.env`、日志、截图、缓存和临时工作目录。
+- `ArkTs/` 是渲染模板工程，改动前需要明确确认。
+- 普通流程不调用视觉模型，也不调用规则评分。
+- `aesthetics` 命令只用于手动离线评测已有图片。
+- 规则迭代和视觉教师标定建议作为后续独立项目处理。

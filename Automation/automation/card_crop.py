@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Literal
 
@@ -15,13 +15,41 @@ CardTypeOption = Literal["auto", "2x2", "2x4"]
 
 
 @dataclass(frozen=True)
+class CropBox:
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+    @classmethod
+    def from_json(cls, value: object, *, name: str) -> "CropBox":
+        if isinstance(value, dict):
+            try:
+                return cls(
+                    x1=int(value["x1"]),
+                    y1=int(value["y1"]),
+                    x2=int(value["x2"]),
+                    y2=int(value["y2"]),
+                )
+            except KeyError as exc:
+                raise ValueError(f"{name} missing coordinate key: {exc.args[0]}") from exc
+
+        if isinstance(value, list | tuple) and len(value) == 4:
+            return cls(x1=int(value[0]), y1=int(value[1]), x2=int(value[2]), y2=int(value[3]))
+
+        raise ValueError(f"{name} must be {{\"x1\": int, \"y1\": int, \"x2\": int, \"y2\": int}} or [x1, y1, x2, y2]")
+
+    def clamp(self, width: int, height: int) -> tuple[int, int, int, int]:
+        x_start, x_end = clamp_bounds(self.x1, self.x2, width)
+        y_start, y_end = clamp_bounds(self.y1, self.y2, height)
+        return x_start, y_start, x_end, y_end
+
+
+@dataclass(frozen=True)
 class CardCropConfig:
-    y_start_ratio: float = 0.040
-    y_end_ratio: float = 0.240
-    x_start_2x2: float = 0.284
-    x_end_2x2: float = 0.719
-    x_start_2x4: float = 0.074
-    x_end_2x4: float = 0.931
+    crop_box_2x2: CropBox = field(default_factory=lambda: CropBox(364, 96, 920, 576))
+    crop_box_2x4: CropBox = field(default_factory=lambda: CropBox(95, 96, 1192, 576))
+    detect_box: CropBox = field(default_factory=lambda: CropBox(0, 96, 1280, 576))
     wide_card_threshold: float = 0.80
     bg_gray_threshold: int = 235
     min_block_width: int = 50
@@ -34,8 +62,8 @@ class CardCropConfig:
 
     @classmethod
     def from_json(cls, path: Path) -> "CardCropConfig":
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        with open(path, "r", encoding="utf-8-sig") as f:
+            data = json.loads(strip_json_comments(f.read()))
         if not isinstance(data, dict):
             raise ValueError(f"Card crop config must be a JSON object: {path}")
 
@@ -43,7 +71,71 @@ class CardCropConfig:
         unknown = sorted(set(data) - allowed)
         if unknown:
             raise ValueError(f"Unknown card crop config keys in {path}: {', '.join(unknown)}")
+
+        data = dict(data)
+        for key in ("crop_box_2x2", "crop_box_2x4", "detect_box"):
+            if key in data:
+                data[key] = CropBox.from_json(data[key], name=key)
         return cls(**data)
+
+
+def strip_json_comments(text: str) -> str:
+    output: list[str] = []
+    index = 0
+    in_string = False
+    escaped = False
+    in_line_comment = False
+    in_block_comment = False
+
+    while index < len(text):
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+
+        if in_line_comment:
+            if char in "\r\n":
+                in_line_comment = False
+                output.append(char)
+            index += 1
+            continue
+
+        if in_block_comment:
+            if char == "*" and next_char == "/":
+                in_block_comment = False
+                index += 2
+            else:
+                index += 1
+            continue
+
+        if in_string:
+            output.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            index += 1
+            continue
+
+        if char == '"':
+            in_string = True
+            output.append(char)
+            index += 1
+            continue
+
+        if char == "/" and next_char == "/":
+            in_line_comment = True
+            index += 2
+            continue
+        if char == "/" and next_char == "*":
+            in_block_comment = True
+            index += 2
+            continue
+
+        output.append(char)
+        index += 1
+
+    return "".join(output)
 
 
 @dataclass(frozen=True)
@@ -87,14 +179,14 @@ class CardCropper:
         if width <= 0 or height <= 0:
             raise ValueError(f"Invalid image size: {input_path}")
 
-        y_start = clamp_int(int(height * self.config.y_start_ratio), 0, height)
-        y_end = clamp_int(int(height * self.config.y_end_ratio), y_start + 1, height)
+        if self.config.card_type == "auto":
+            detected_type, content_width_ratio = self._detect_card_type(gray, width, height)
+            card_type = detected_type
+        else:
+            card_type = self.config.card_type
+            content_width_ratio = 0.0
 
-        detected_type, content_width_ratio = self._detect_card_type(gray, y_start, y_end, width)
-        card_type = detected_type if self.config.card_type == "auto" else self.config.card_type
-        x_start, x_end = self._x_bounds(card_type, width)
-        refined_y_start, refined_y_end = self._refine_y(gray, x_start, x_end, y_start, y_end)
-        box = (x_start, refined_y_start, x_end, refined_y_end)
+        box = self._crop_box(card_type, width, height)
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with Image.open(input_path) as pil_image:
@@ -127,8 +219,9 @@ class CardCropper:
             results.append(self.crop(input_path, output_dir, debug=debug))
         return results
 
-    def _detect_card_type(self, gray: np.ndarray, y_start: int, y_end: int, img_w: int) -> tuple[CardType, float]:
-        band_gray = gray[y_start:y_end, :]
+    def _detect_card_type(self, gray: np.ndarray, img_w: int, img_h: int) -> tuple[CardType, float]:
+        x_start, y_start, x_end, y_end = self.config.detect_box.clamp(img_w, img_h)
+        band_gray = gray[y_start:y_end, x_start:x_end]
         content_mask = band_gray < self.config.bg_gray_threshold
         col_proj = content_mask.sum(axis=0)
         content_cols = np.where(col_proj > self.config.col_content_threshold)[0]
@@ -141,35 +234,15 @@ class CardCropper:
         if not blocks:
             return "2x2", 0.0
 
-        x_min = min(start for start, _ in blocks)
-        x_max = max(end for _, end in blocks)
+        x_min = x_start + min(start for start, _ in blocks)
+        x_max = x_start + max(end for _, end in blocks)
         content_width_ratio = (x_max - x_min) / img_w
         card_type: CardType = "2x4" if content_width_ratio > self.config.wide_card_threshold else "2x2"
         return card_type, content_width_ratio
 
-    def _x_bounds(self, card_type: CardType, img_w: int) -> tuple[int, int]:
-        if card_type == "2x4":
-            x_start = int(img_w * self.config.x_start_2x4)
-            x_end = int(img_w * self.config.x_end_2x4)
-        else:
-            x_start = int(img_w * self.config.x_start_2x2)
-            x_end = int(img_w * self.config.x_end_2x2)
-        return clamp_bounds(x_start, x_end, img_w)
-
-    def _refine_y(self, gray: np.ndarray, x_start: int, x_end: int, y_start: int, y_end: int) -> tuple[int, int]:
-        band_gray = gray[y_start:y_end, x_start:x_end]
-        if band_gray.size == 0:
-            return y_start, y_end
-
-        row_proj = (band_gray < self.config.bg_gray_threshold).sum(axis=1)
-        content_rows = np.where(row_proj > self.config.row_content_threshold)[0]
-        if content_rows.size == 0:
-            return y_start, y_end
-
-        band_height = y_end - y_start
-        refined_start = y_start + max(0, int(content_rows[0]) - self.config.y_refine_top_margin)
-        refined_end = y_start + min(band_height, int(content_rows[-1]) + self.config.y_refine_bottom_margin)
-        return clamp_bounds(refined_start, refined_end, gray.shape[0])
+    def _crop_box(self, card_type: CardType, img_w: int, img_h: int) -> tuple[int, int, int, int]:
+        config_box = self.config.crop_box_2x4 if card_type == "2x4" else self.config.crop_box_2x2
+        return config_box.clamp(img_w, img_h)
 
     def _save_debug(self, image: np.ndarray, box: tuple[int, int, int, int], debug_path: Path) -> None:
         debug_path.parent.mkdir(parents=True, exist_ok=True)

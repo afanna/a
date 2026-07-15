@@ -26,7 +26,7 @@ class XiaoyiClient:
         self.extractor = extractor or DslExtractor()
         self.dump_path = config.work_dir / "current_ui_tree.json"
         self.last_dsl_fingerprint: str | None = None
-        self._log = get_logger("xiaoyi", sn=config.safe_sn or "", log_dir=config.output_dir, debug=config.debug)
+        self._log = get_logger("xiaoyi", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
 
     def dump_tree(self) -> UiTree:
         self.hdc.dump_layout(self.dump_path, self.config.remote_dump)

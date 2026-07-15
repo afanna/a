@@ -48,17 +48,28 @@
 
     // 清理上下文需要点击的屏幕绝对坐标，按顺序执行。
     // 示例：[{ "x": 980, "y": 180 }, { "x": 720, "y": 1320 }]
-    "context_clear_points": [],
+    "context_clear_points": [{ "x": 1150, "y": 255 }],
 
     // 每次清理点击后的等待秒数。
     "context_clear_wait": 1,
 
+    // DSL 连续重试失败后，是否自动抓取一段设备 hilog 方便后续分析。
+    // 只在某条 query 最终失败时触发，不会因为单次内部重试失败就抓日志。
+    "hilog_on_dsl_failure": true,
+
+    // 每次抓取 hilog 的秒数，默认 5 秒。日志太少可调大，文件太大可调小。
+    "hilog_capture_seconds": 5,
+
+    // hilog 输出目录。null 表示使用 output/logs；多设备并行时会使用 output/{safe_sn}/logs。
+    // 也可以写成固定目录，例如 "output/logs"。
+    "hilog_output_dir": null,
+
     // 是否在截图后自动裁切卡片图；开启规则评分或模型审美评分时也会自动裁切。
-    "enable_card_crop": false,
+    "enable_card_crop": true,
 
     // 是否在裁切完成后执行本地纯规则美学评分。
     // 开启后输出到 output/reports，不调用任何外部模型。
-    "enable_rule_check": true,
+    "enable_rule_check": false,
 
     // 卡片裁切配置文件路径，裁切位置变化时优先改这个文件。
     "card_crop_config": "Automation/config/card_crop.json",

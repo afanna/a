@@ -37,10 +37,7 @@ class HdcClient:
         self.env["MSYS_NO_PATHCONV"] = "1"
 
     def run(self, args: Sequence[object], *, timeout: float | None = None, check: bool = True) -> CommandResult:
-        command = [self.executable]
-        if self.sn:
-            command.extend(["-t", self.sn])
-        command.extend(str(arg) for arg in args)
+        command = self.command(args)
         try:
             completed = subprocess.run(
                 command,
@@ -56,6 +53,13 @@ class HdcClient:
         if check and result.returncode != 0:
             raise HdcError(format_command_failure(result))
         return result
+
+    def command(self, args: Sequence[object]) -> list[str]:
+        command = [self.executable]
+        if self.sn:
+            command.extend(["-t", self.sn])
+        command.extend(str(arg) for arg in args)
+        return command
 
     def shell(self, *parts: object, timeout: float | None = None, check: bool = True) -> CommandResult:
         return self.run(["shell", *parts], timeout=timeout, check=check)
