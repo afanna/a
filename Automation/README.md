@@ -77,9 +77,9 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 ## 输出
 
 - DSL 文件：`dsl/{qid}.jsonl`
-- ArkTS rawfile 目标：`ArkTs/entry/src/main/resources/rawfile/sample.jsonl`
+- 渲染工程 rawfile 目标：`A2UI_Render/entry/src/main/resources/rawfile/test.json`
 
-`sample` 当前按 JSON 数组文件校验并复制到 ArkTS rawfile 目录。
+DSL 当前按 JSON 数组文件校验，并复制到配置中的渲染工程 rawfile 目标。
 - 截图文件：`output/{qid}.jpeg`
 - 裁切卡片：`output/card/{qid}.png`
 - DSL 最终失败 hilog：`output/logs/{timestamp}-{qid}.txt`
@@ -90,7 +90,7 @@ Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHa
 使用 `parallel` 时，输出会按设备隔离：
 
 - DSL 文件：`dsl/{safe_sn}/{qid}.jsonl`
-- ArkTS 工作副本：`Automation/.work/devices/{safe_sn}/ArkTs`
+- 渲染工程工作副本：`Automation/.work/devices/{safe_sn}/A2UI_Render`
 - 截图文件：`output/{safe_sn}/{qid}.jpeg`
 - 裁切卡片：`output/{safe_sn}/card/{qid}.png`
 - DSL 最终失败 hilog：`output/{safe_sn}/logs/{timestamp}-{qid}.txt`

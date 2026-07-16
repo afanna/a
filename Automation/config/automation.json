@@ -8,11 +8,32 @@
     "hdc": "hdc",
 
     // DevEco SDK 和 JDK 路径，用于 ArkTS 编译签名。
-    "deveco_sdk_home": "D:/DevEco Studio/sdk",
-    "java_home": "D:/DevEco Studio/jbr",
+    "deveco_sdk_home": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/sdk",
+    "java_home": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/jbr",
 
-    // HarmonyOS 应用启动信息，需要和 ArkTs 工程保持一致。
-    "bundle_name": "yyx.test.test",
+    // 渲染工程目录。相对路径基于项目根目录；也可以填写绝对路径。
+    "render_project_dir": "A2UI_Render",
+
+    // 渲染工程复制到 Automation/.work 后使用的目录名。null 表示自动使用渲染工程目录名。
+    "render_work_dir_name": null,
+
+    // 自动化把提取到的 DSL 写入渲染工程的哪个 rawfile。
+    // 这个路径相对于渲染工程根目录，需要和页面代码里的 getRawFileContentSync(...) 保持一致。
+    "rawfile_target": "entry/src/main/resources/rawfile/test.json",
+
+    // HAP 构建输出目录，相对于渲染工程根目录。
+    "hap_output_dir": "entry/build/default/outputs/default",
+
+    // 自动化安装的签名 HAP 文件名。
+    "signed_hap_name": "entry-default-signed.hap",
+
+    // hvigor 可执行文件。null 表示自动查找工程内 hvigorw 或系统 PATH。
+    // 如果需要固定路径，可填写：
+    // "D:/devecostudio-windows-6.1.1.280/DevEco Studio/tools/hvigor/bin/hvigorw.bat"
+    "hvigor_executable": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/tools/hvigor/bin/hvigorw.bat",
+
+    // HarmonyOS 应用启动信息，需要和渲染工程保持一致。
+    "bundle_name": "com.example.myapplication",
     "ability_name": "EntryAbility",
     "module_name": "entry",
 

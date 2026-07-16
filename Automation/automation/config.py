@@ -6,7 +6,7 @@ import re
 
 # Local test-machine configuration.
 # Update this one path if DevEco Studio is installed somewhere else.
-LOCAL_DEVECO_STUDIO_HOME = Path("D:/DevEco Studio")
+LOCAL_DEVECO_STUDIO_HOME = Path("D:/devecostudio-windows-6.1.1.280/DevEco Studio")
 LOCAL_DEVECO_SDK_HOME = LOCAL_DEVECO_STUDIO_HOME / "sdk"
 LOCAL_JAVA_HOME = LOCAL_DEVECO_STUDIO_HOME / "jbr"
 
@@ -28,7 +28,13 @@ class AutomationConfig:
     build_timeout: float = 300
     deveco_sdk_home: Path | None = LOCAL_DEVECO_SDK_HOME
     java_home: Path | None = LOCAL_JAVA_HOME
-    bundle_name: str = "yyx.test.test"
+    render_project_dir: Path = Path("A2UI_Render")
+    render_work_dir_name: str | None = None
+    rawfile_target_rel: Path = Path("entry/src/main/resources/rawfile/test.json")
+    hap_output_dir_rel: Path = Path("entry/build/default/outputs/default")
+    signed_hap_name: str = "entry-default-signed.hap"
+    hvigor_executable: Path | None = None
+    bundle_name: str = "com.example.myapplication"
     ability_name: str = "EntryAbility"
     module_name: str = "entry"
     screenshot_min_bytes: int = 1000
@@ -73,23 +79,24 @@ class AutomationConfig:
 
     @property
     def source_arkts_dir(self) -> Path:
-        return self.project_root / "ArkTs"
+        return resolve_project_path(self.project_root, self.render_project_dir)
 
     @property
     def arkts_dir(self) -> Path:
-        return self.work_dir / "ArkTs"
+        name = self.render_work_dir_name or self.render_project_dir.name or "render_project"
+        return self.work_dir / safe_path_name(name)
 
     @property
     def rawfile_target(self) -> Path:
-        return self.arkts_dir / self.module_name / "src" / "main" / "resources" / "rawfile" / "sample.jsonl"
+        return self.arkts_dir / self.rawfile_target_rel
 
     @property
     def hap_output_dir(self) -> Path:
-        return self.arkts_dir / self.module_name / "build" / "default" / "outputs" / "default"
+        return self.arkts_dir / self.hap_output_dir_rel
 
     @property
     def signed_hap_path(self) -> Path:
-        return self.hap_output_dir / f"{self.module_name}-default-signed.hap"
+        return self.hap_output_dir / self.signed_hap_name
 
     @property
     def work_dir(self) -> Path:
@@ -164,3 +171,9 @@ class AutomationConfig:
 def safe_path_name(value: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")
     return cleaned or "item"
+
+
+def resolve_project_path(project_root: Path, value: Path) -> Path:
+    if value.is_absolute():
+        return value
+    return project_root / value

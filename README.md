@@ -345,7 +345,7 @@ Automation-screenshot/
 │   │   ├── automation.json         # 主运行配置
 │   │   └── card_crop.json          # 裁切坐标配置
 │   └── .work/                      # 临时工作目录和日志
-├── ArkTs/                          # HarmonyOS ArkTS 渲染工程模板
+├── A2UI_Render/                    # HarmonyOS 渲染工程模板
 ├── Aesthetic_Rule_Check/           # 规则评分项目，普通流程不自动调用
 ├── visual_aesthetics/              # 独立视觉评分模块
 ├── dsl/                            # DSL 产物
@@ -440,7 +440,7 @@ python Automation\main.py one --qid test --query "生成一个测试卡片"
 ## 注意事项
 
 - 不要提交 API key、`.env`、日志、截图、缓存和临时工作目录。
-- `ArkTs/` 是渲染模板工程，改动前需要明确确认。
+- `A2UI_Render/` 是渲染模板工程，改动前需要明确确认。
 - 普通流程不调用视觉模型，也不调用规则评分。
 - `aesthetics` 命令只用于手动离线评测已有图片。
 - 规则迭代和视觉教师标定建议作为后续独立项目处理。

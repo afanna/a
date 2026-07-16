@@ -99,6 +99,11 @@ def add_common_arguments(
     parser.add_argument("--render-wait", type=float, default=default, help=hidden)
     parser.add_argument("--deveco-sdk-home", type=Path, default=default, help=hidden)
     parser.add_argument("--java-home", type=Path, default=default, help=hidden)
+    parser.add_argument("--render-project-dir", type=Path, default=default, help=hidden)
+    parser.add_argument("--rawfile-target", type=Path, default=default, help=hidden)
+    parser.add_argument("--hap-output-dir", type=Path, default=default, help=hidden)
+    parser.add_argument("--signed-hap-name", default=default, help=hidden)
+    parser.add_argument("--hvigor-executable", type=Path, default=default, help=hidden)
     parser.add_argument("--bundle-name", default=default, help=hidden)
     parser.add_argument("--ability-name", default=default, help=hidden)
     parser.add_argument("--module-name", default=default, help=hidden)
@@ -191,7 +196,13 @@ def make_config(
         "query_max_attempts": value("query_max_attempts", 3),
         "build_timeout": value("build_timeout", 300),
         "render_wait": value("render_wait", 5),
-        "bundle_name": value("bundle_name", "yyx.test.test"),
+        "render_project_dir": value("render_project_dir", "A2UI_Render"),
+        "render_work_dir_name": value("render_work_dir_name", None),
+        "rawfile_target_rel": value("rawfile_target", "entry/src/main/resources/rawfile/test.json"),
+        "hap_output_dir_rel": value("hap_output_dir", "entry/build/default/outputs/default"),
+        "signed_hap_name": value("signed_hap_name", "entry-default-signed.hap"),
+        "hvigor_executable": value("hvigor_executable", None),
+        "bundle_name": value("bundle_name", "com.example.myapplication"),
         "ability_name": value("ability_name", "EntryAbility"),
         "module_name": value("module_name", "entry"),
         "screenshot_min_bytes": value("screenshot_min_bytes", 1000),
@@ -321,7 +332,18 @@ def make_aesthetics_config(args: argparse.Namespace, config: dict, project_root:
     )
 
 def coerce_automation_values(values: dict) -> dict:
-    path_keys = {"project_root", "deveco_sdk_home", "java_home", "card_crop_config", "rule_check_config_dir", "hilog_output_dir_override"}
+    path_keys = {
+        "project_root",
+        "deveco_sdk_home",
+        "java_home",
+        "render_project_dir",
+        "rawfile_target_rel",
+        "hap_output_dir_rel",
+        "hvigor_executable",
+        "card_crop_config",
+        "rule_check_config_dir",
+        "hilog_output_dir_override",
+    }
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
     if "context_clear_points" in coerced:
         coerced["context_clear_points"] = coerce_points(coerced["context_clear_points"])

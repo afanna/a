@@ -55,7 +55,7 @@ class ArkTsRunner:
             source,
             target,
             dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns("build", ".hvigor", ".idea", ".gradle", "node_modules"),
+            ignore=shutil.ignore_patterns("build", ".hvigor", ".idea", ".gradle", "node_modules", "oh_modules"),
         )
 
     def build_and_run(self) -> None:
@@ -131,7 +131,7 @@ class ArkTsRunner:
         return env
 
     def run_hvigor(self, action: str, env: Mapping[str, str]) -> None:
-        command = hvigor_command(self.config.arkts_dir, action)
+        command = hvigor_command(self.config.arkts_dir, action, self.config.hvigor_executable)
         run_local_command(command, self.config.arkts_dir, env, self.config.build_timeout)
 
     def print_hap_outputs(self) -> None:
@@ -149,19 +149,23 @@ def config_path_or_env(value: Path | None, env_name: str) -> Path | None:
     return Path(raw_value)
 
 
-def hvigor_command(arkts_dir: Path, action: str) -> list[str]:
-    executable = find_hvigor_executable(arkts_dir)
+def hvigor_command(arkts_dir: Path, action: str, executable_override: Path | None = None) -> list[str]:
+    executable = executable_override or find_hvigor_executable(arkts_dir)
     if os.name == "nt":
         return ["cmd", "/c", "call", str(executable), action]
     return [str(executable), action]
 
 
 def find_hvigor_executable(arkts_dir: Path) -> Path | str:
-    for name in ("hvigorw.bat", "hvigorw", "hvigrow.bat", "hvigrow"):
+    for name in ("hvigorw.bat", "hvigorw", "hvigrow.bat", "hvigrow", "hvigor.bat", "hvigor"):
         candidate = arkts_dir / name
         if candidate.exists():
             return candidate
-    return "hvigorw"
+    for name in ("hvigorw.bat", "hvigorw", "hvigor.bat", "hvigor"):
+        executable = shutil.which(name)
+        if executable:
+            return executable
+    return "hvigorw.bat" if os.name == "nt" else "hvigorw"
 
 
 def run_local_command(command: Sequence[str], cwd: Path, env: Mapping[str, str], timeout: float) -> None:
