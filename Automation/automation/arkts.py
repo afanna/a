@@ -55,7 +55,7 @@ class ArkTsRunner:
             source,
             target,
             dirs_exist_ok=True,
-            ignore=shutil.ignore_patterns("build", ".hvigor", ".idea", ".gradle", "node_modules", "oh_modules"),
+            ignore=shutil.ignore_patterns("build", ".hvigor", ".idea", ".gradle", "node_modules"),
         )
 
     def build_and_run(self) -> None:

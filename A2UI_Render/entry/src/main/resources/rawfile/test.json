@@ -1,95 +1,369 @@
+
 [
   {
     "version": "v0.9",
     "createSurface": {
-      "surfaceId": "surface_ac145_001",
+      "surfaceId": "schedule_charging_map_2x2",
       "catalogId": "ohos.a2ui.extended.catalog"
     }
   },
   {
     "version": "v0.9",
     "updateComponents": {
-      "surfaceId": "surface_ac145_001",
+      "surfaceId": "schedule_charging_map_2x2",
+      "root": "root",
       "components": [
         {
           "id": "root",
+          "component": "Stack",
+          "children": [
+            "top_panel_layer",
+            "content_layer"
+          ],
+          "styles": {
+            "width": 158,
+            "height": 158,
+            "padding": 0,
+            "borderRadius": {
+              "topLeft": 18,
+              "topRight": 18,
+              "bottomLeft": 12,
+              "bottomRight": 12
+            },
+            "clip": true,
+            "backgroundColor": "#ffffffff",
+            "alignContent": "center"
+          }
+        },
+        {
+          "id": "top_panel_layer",
           "component": "Column",
-          "children": ["text_ac145_001"],
+          "children": [
+            "top_panel"
+          ],
           "styles": {
             "width": "matchParent",
             "height": "matchParent",
+            "justifyContent": "start",
+            "alignItems": "center"
+          }
+        },
+        {
+          "id": "top_panel",
+          "component": "Column",
+          "children": [
+            "top_panel_fill"
+          ],
+          "styles": {
+            "width": "matchParent",
+            "height": 54,
+            "borderRadius": {
+              "topLeft": 18,
+              "topRight": 18,
+              "bottomLeft": 10,
+              "bottomRight": 10
+            },
+            "clip": true,
+            "backgroundColor": "#d8e8f8",
+            "justifyContent": "center",
+            "alignItems": "center",
+            "linearGradient": {
+              "direction": "LeftBottom",
+              "colors": [
+                [
+                  "#bdd5f1",
+                  0
+                ],
+                [
+                  "#deeaf7",
+                  1
+                ]
+              ],
+              "angle": 225
+            }
+          }
+        },
+        {
+          "id": "top_panel_fill",
+          "component": "Text",
+          "content": "",
+          "styles": {
+            "width": 1,
+            "height": 1,
+            "fontSize": 10,
+            "fontColor": "#d8e8f8",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "content_layer",
+          "component": "Column",
+          "children": [
+            "top_spacer",
+            "header_row",
+            "event_title",
+            "event_time",
+            "cta_spacer",
+            "charging_map_info"
+          ],
+          "itemMargin": 0,
+          "styles": {
+            "width": "matchParent",
+            "height": "matchParent",
+            "padding": {
+              "left": 12,
+              "right": 12
+            },
+            "justifyContent": "start",
+            "alignItems": "start"
+          }
+        },
+        {
+          "id": "top_spacer",
+          "component": "Text",
+          "content": "",
+          "styles": {
+            "width": 1,
+            "height": 34,
+            "fontSize": 10,
+            "fontColor": "#ffffffff",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "header_row",
+          "component": "Row",
+          "children": [
+            "calendar_badge",
+            "schedule_label_column"
+          ],
+          "itemMargin": 6,
+          "styles": {
+            "width": "matchParent",
+            "height": 42,
+            "justifyContent": "start",
+            "alignItems": "top"
+          }
+        },
+        {
+          "id": "calendar_badge",
+          "component": "Stack",
+          "children": [
+            "calendar_icon"
+          ],
+          "styles": {
+            "width": 32,
+            "height": 32,
+            "borderRadius": 16,
+            "backgroundColor": "#ffffffff",
+            "borderWidth": 1,
+            "borderColor": "#0c000000",
+            "alignContent": "center"
+          }
+        },
+        {
+          "id": "calendar_icon",
+          "component": "Image",
+          "src": "resources/base/media/air_open_fill.svg",
+          "styles": {
+            "width": 19,
+            "height": 19,
+            "objectFit": "contain",
+            "fillColor": "#24364B"
+          }
+        },
+        {
+          "id": "schedule_label_column",
+          "component": "Column",
+          "children": [
+            "schedule_label_spacer",
+            "schedule_label"
+          ],
+          "itemMargin": 0,
+          "styles": {
+            "width": 84,
+            "height": 42,
+            "justifyContent": "start",
+            "alignItems": "start"
+          }
+        },
+        {
+          "id": "schedule_label_spacer",
+          "component": "Text",
+          "content": "",
+          "styles": {
+            "width": 1,
+            "height": 26,
+            "fontSize": 10,
+            "fontColor": "#ffffffff",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "schedule_label",
+          "component": "Text",
+          "content": "{{ ${/card/title} }}",
+          "styles": {
+            "width": 84,
+            "height": 16,
+            "fontSize": 10,
+            "fontWeight": 600,
+            "fontColor": "#24364B",
+            "maxLines": 1,
+            "textAlign": "start"
+          }
+        },
+        {
+          "id": "event_title",
+          "component": "Text",
+          "content": "{{ ${/data/calendar/events/0/title} }}",
+          "styles": {
+            "width": "matchParent",
+            "height": 16,
+            "margin": {
+              "top": 4
+            },
+            "fontSize": 16,
+            "fontWeight": 700,
+            "fontColor": "#e5000000",
+            "maxLines": 1,
+            "textAlign": "start"
+          }
+        },
+        {
+          "id": "event_time",
+          "component": "Text",
+          "content": "{{ ${/data/calendar/events/0/timeText} }}",
+          "styles": {
+            "width": "matchParent",
+            "height": 14,
+            "fontSize": 10,
+            "fontWeight": 500,
+            "fontColor": "#24364B",
+            "maxLines": 1,
+            "textAlign": "start",
+            "margin": {
+              "top": 4
+            }
+          }
+        },
+        {
+          "id": "cta_spacer",
+          "component": "Text",
+          "content": "",
+          "styles": {
+            "width": 1,
+            "height": 4,
+            "fontSize": 10,
+            "fontColor": "#ffffffff",
+            "maxLines": 1
+          }
+        },
+        {
+          "id": "charging_map_info",
+          "component": "Row",
+          "children": [
+            "charging_map_icon",
+            "charging_map_label"
+          ],
+          "itemMargin": 6,
+          "styles": {
+            "width": 136,
+            "height": 21,
+            "margin": {
+              "top": 10,
+              "left": 2
+            },
+            "padding": {
+              "left": 8,
+              "right": 8
+            },
+            "borderRadius": 11,
+            "backgroundColor": "#ffffffff",
+            "borderWidth": 0.5,
+            "borderColor": "#5878A1",
             "justifyContent": "center",
             "alignItems": "center"
           }
         },
         {
-          "id": "text_ac145_001",
+          "id": "charging_map_icon",
+          "component": "Stack",
+          "children": [
+            "charging_map_bolt"
+          ],
+          "styles": {
+            "width": 10,
+            "height": 10,
+            "borderRadius": 5,
+            "borderWidth": 1,
+            "borderColor": "#244F7D",
+            "alignContent": "center"
+          }
+        },
+        {
+          "id": "charging_map_bolt",
+          "component": "Image",
+          "src": "resources/base/media/bolt_fill.svg",
+          "styles": {
+            "width": 6,
+            "height": 6,
+            "objectFit": "contain",
+            "fillColor": "#244F7D"
+          }
+        },
+        {
+          "id": "charging_map_label",
           "component": "Text",
-          "content": "AC145 Surface 1"
+          "content": "{{ ${/action/label} }}",
+          "styles": {
+            "width": 72,
+            "height": 14,
+            "fontSize": 10,
+            "fontWeight": 600,
+            "fontColor": "#244F7D",
+            "maxLines": 1,
+            "textAlign": "center"
+          }
         }
       ]
     }
   },
   {
     "version": "v0.9",
-    "createSurface": {
-      "surfaceId": "surface_ac145_002",
-      "catalogId": "ohos.a2ui.extended.catalog"
-    }
-  },
-  {
-    "version": "v0.9",
-    "updateComponents": {
-      "surfaceId": "surface_ac145_002",
-      "components": [
-        {
-          "id": "root",
-          "component": "Column",
-          "children": ["text_ac145_002"],
-          "styles": {
-            "width": "matchParent",
-            "height": "matchParent",
-            "justifyContent": "center",
-            "alignItems": "center"
+    "updateDataModel": {
+      "surfaceId": "schedule_charging_map_2x2",
+      "path": "/",
+      "value": {
+        "card": {
+          "title": "今日安排"
+        },
+        "data": {
+          "calendar": {
+            "events": [
+              {
+                "title": "产品评审",
+                "dtStart": "14:00",
+                "dtEnd": "15:00",
+                "entityId": "",
+                "timeText": "14:00–15:00"
+              }
+            ],
+            "eventCount": 1,
+            "updatedAt": "test_fixture"
           }
         },
-        {
-          "id": "text_ac145_002",
-          "component": "Text",
-          "content": "AC145 Surface 2"
-        }
-      ]
-    }
-  },
-  {
-    "version": "v0.9",
-    "createSurface": {
-      "surfaceId": "surface_ac145_003",
-      "catalogId": "ohos.a2ui.extended.catalog"
-    }
-  },
-  {
-    "version": "v0.9",
-    "updateComponents": {
-      "surfaceId": "surface_ac145_003",
-      "components": [
-        {
-          "id": "root",
-          "component": "Column",
-          "children": ["text_ac145_003"],
-          "styles": {
-            "width": "matchParent",
-            "height": "matchParent",
-            "justifyContent": "center",
-            "alignItems": "center"
-          }
+        "action": {
+          "label": "充电地图",
+          "capabilityStatus": "unresolved"
         },
-        {
-          "id": "text_ac145_003",
-          "component": "Text",
-          "content": "AC145 Surface 3"
+        "state": {
+          "loading": false,
+          "source": "test_fixture"
         }
-      ]
+      }
     }
   }
 ]
+
+    

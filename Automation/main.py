@@ -200,7 +200,7 @@ def make_config(
         "render_work_dir_name": value("render_work_dir_name", None),
         "rawfile_target_rel": value("rawfile_target", "entry/src/main/resources/rawfile/test.json"),
         "hap_output_dir_rel": value("hap_output_dir", "entry/build/default/outputs/default"),
-        "signed_hap_name": value("signed_hap_name", "entry-default-signed.hap"),
+        "signed_hap_name": value("signed_hap_name", "entry-default-unsigned.hap"),
         "hvigor_executable": value("hvigor_executable", None),
         "bundle_name": value("bundle_name", "com.example.myapplication"),
         "ability_name": value("ability_name", "EntryAbility"),
