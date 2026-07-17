@@ -54,7 +54,7 @@
     "build_timeout": 300,
 
     // 启动渲染应用后等待画面稳定的秒数，再截图。
-    "render_wait": 5,
+    "render_wait": 10,
 
     // 截图文件小于这个字节数会认为截图失败并重试。
     "screenshot_min_bytes": 1000,
