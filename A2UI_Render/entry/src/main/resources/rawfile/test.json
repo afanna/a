@@ -4,7 +4,9 @@
     "version": "v0.9",
     "createSurface": {
       "surfaceId": "schedule_charging_map_2x2",
-      "catalogId": "ohos.a2ui.extended.catalog"
+      "catalogId": "ohos.a2ui.extended.catalog",
+      "width": 158,
+      "height": 158
     }
   },
   {
@@ -164,7 +166,7 @@
         {
           "id": "calendar_icon",
           "component": "Image",
-          "src": "resources/base/media/air_open_fill.svg",
+          "src": "resources/base/media/icon_schedule.png",
           "styles": {
             "width": 19,
             "height": 19,
@@ -304,7 +306,7 @@
         {
           "id": "charging_map_bolt",
           "component": "Image",
-          "src": "resources/base/media/bolt_fill.svg",
+          "src": "resources/base/media/icon_charge.png",
           "styles": {
             "width": 6,
             "height": 6,
