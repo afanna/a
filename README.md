@@ -8,13 +8,14 @@
 Query -> 小艺生成 DSL -> 提取 DSL -> ArkTS 渲染 -> 截图 -> 裁切卡片 -> 停止
 ```
 
-普通自动化流程不再自动执行规则评分或视觉模型评分。最终 `output` 目录只保留裁切后的卡片图，文件名使用 query id，例如：
+普通自动化流程不再自动执行规则评分或视觉模型评分。最终 `output` 目录会保留整屏截图和裁切后的卡片图，文件名使用 query id，例如：
 
 ```text
+output/Screenshot/weather_card_01.jpeg
 output/weather_card_01.png
 ```
 
-完整截图只作为中间产物使用，裁切完成后会自动删除。日志、裁切 debug 图和临时工作目录会写入 `Automation/.work/`，避免污染最终数据目录。
+完整截图用于后续分析，会保存在 `output/Screenshot`。日志、裁切 debug 图和临时工作目录会写入 `Automation/.work/`，避免污染最终数据目录。
 
 ## 适用场景
 
@@ -409,11 +410,12 @@ output/
 queries.jsonl
 ```
 
-### 中间截图去哪了
+### 完整截图保存在哪里
 
-中间截图用于裁切，裁切完成后会删除。最终只保留：
+完整截图用于裁切和后续问题分析，会保存在：
 
 ```text
+output/Screenshot/{qid}.jpeg
 output/{qid}.png
 ```
 

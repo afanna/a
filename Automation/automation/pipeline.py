@@ -38,7 +38,6 @@ class AutomationPipeline:
         query_result = self.xiaoyi.collect_dsl_for_query(case.qid, case.query)
         screenshot = self.arkts.render(case.qid, query_result.dsl_path)
         card_path = self._crop_card(case.qid, screenshot)
-        self._delete_intermediate_screenshot(case.qid, screenshot)
         return RenderResult(case.qid, query_result.dsl_path, screenshot, card_path)
 
     def run_batch(self, queries_path: Path | None = None) -> list[RenderResult]:
@@ -124,7 +123,6 @@ class AutomationPipeline:
                 self._log.error("Render failed: qid=%s dsl=%s error=%s", qid, dsl_path, exc)
                 continue
             card_path = self._crop_card(qid, screenshot)
-            self._delete_intermediate_screenshot(qid, screenshot)
             render_results.append(RenderResult(qid, dsl_path, screenshot, card_path))
 
         if log_summary:
@@ -185,15 +183,6 @@ class AutomationPipeline:
             result.card_path,
         )
         return result.card_path
-
-    def _delete_intermediate_screenshot(self, qid: str, screenshot: Path) -> None:
-        try:
-            screenshot.unlink(missing_ok=True)
-        except OSError as exc:
-            self._log.error("Failed to delete intermediate screenshot: qid=%s screenshot=%s error=%s", qid, screenshot, exc)
-            return
-        self._log.info("Intermediate screenshot deleted: qid=%s screenshot=%s", qid, screenshot)
-
 
 def qid_from_dsl_path(path: Path, safe_sn: str | None = None) -> str:
     qid = path.stem

@@ -124,7 +124,7 @@ class AutomationConfig:
         return self.dsl_dir / f"{self.artifact_stem(qid)}.jsonl"
 
     def screenshot_path_for(self, qid: str) -> Path:
-        return self.output_dir / f"{self.artifact_stem(qid)}.jpeg"
+        return self.screenshot_output_dir / f"{self.artifact_stem(qid)}.jpeg"
 
     def card_screenshot_path_for(self, qid: str) -> Path:
         return self.card_output_dir / f"{self.artifact_stem(qid)}.png"
@@ -132,6 +132,10 @@ class AutomationConfig:
     @property
     def card_output_dir(self) -> Path:
         return self.output_dir
+
+    @property
+    def screenshot_output_dir(self) -> Path:
+        return self.output_dir / "Screenshot"
 
     @property
     def card_crop_debug_dir(self) -> Path:
