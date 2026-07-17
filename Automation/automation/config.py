@@ -4,12 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 
-# Local test-machine configuration.
-# Update this one path if DevEco Studio is installed somewhere else.
-LOCAL_DEVECO_STUDIO_HOME = Path("D:/devecostudio-windows-6.1.1.280/DevEco Studio")
-LOCAL_DEVECO_SDK_HOME = LOCAL_DEVECO_STUDIO_HOME / "sdk"
-LOCAL_JAVA_HOME = LOCAL_DEVECO_STUDIO_HOME / "jbr"
-
 @dataclass(frozen=True)
 class AutomationConfig:
     project_root: Path
@@ -26,8 +20,8 @@ class AutomationConfig:
     scroll_limit: int = 12
     render_wait: float = 5
     build_timeout: float = 300
-    deveco_sdk_home: Path | None = LOCAL_DEVECO_SDK_HOME
-    java_home: Path | None = LOCAL_JAVA_HOME
+    deveco_sdk_home: Path | None = None
+    java_home: Path | None = None
     render_project_dir: Path = Path("A2UI_Render")
     render_work_dir_name: str | None = None
     rawfile_target_rel: Path = Path("entry/src/main/resources/rawfile/test.json")

@@ -30,7 +30,7 @@
 
     // hvigor 可执行文件。null 表示自动查找工程内 hvigorw 或系统 PATH。
     // 如果需要固定路径，可填写：
-    // "D:/devecostudio-windows-6.1.1.280/DevEco Studio/tools/hvigor/bin/hvigorw.bat"
+    // "D:/DevEco Studio/tools/hvigor/bin/hvigorw.bat"
     "hvigor_executable": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/tools/hvigor/bin/hvigorw.bat",
 
     // HarmonyOS 应用启动信息，需要和渲染工程保持一致。

@@ -40,9 +40,11 @@ class ArkTsRunner:
             raise FileNotFoundError(dsl_path)
         if dsl_path.suffix.lower() != ".jsonl":
             raise ValueError(f"DSL file must be JSONL: {dsl_path}")
-        validate_dsl_array_file(dsl_path)
+        records = load_dsl_records(dsl_path)
         self.config.rawfile_target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(dsl_path, self.config.rawfile_target)
+        with open(self.config.rawfile_target, "w", encoding="utf-8") as f:
+            json.dump(records, f, ensure_ascii=False, indent=2)
+            f.write("\n")
         return self.config.rawfile_target
 
     def ensure_arkts_workspace(self) -> None:
@@ -104,7 +106,11 @@ class ArkTsRunner:
     def build_env(self) -> dict[str, str]:
         env = os.environ.copy()
         deveco_sdk_home = config_path_or_env(self.config.deveco_sdk_home, "DEVECO_SDK_HOME")
+        if deveco_sdk_home is None:
+            deveco_sdk_home = discover_deveco_sdk_home(self.config.hvigor_executable)
         java_home = config_path_or_env(self.config.java_home, "JAVA_HOME")
+        if java_home is None:
+            java_home = discover_java_home(self.config.hvigor_executable)
         if deveco_sdk_home is None:
             raise RuntimeError("DEVECO_SDK_HOME is not configured. Pass --deveco-sdk-home or set the environment variable.")
         if java_home is None:
@@ -147,6 +153,51 @@ def config_path_or_env(value: Path | None, env_name: str) -> Path | None:
     if not raw_value:
         return None
     return Path(raw_value)
+
+
+def discover_deveco_studio_home(hvigor_executable: Path | None = None) -> Path | None:
+    for env_name in ("DEVECO_STUDIO_HOME", "DevEco Studio"):
+        raw_value = os.environ.get(env_name)
+        if raw_value:
+            candidate = Path(raw_value.split(os.pathsep)[0])
+            if candidate.exists():
+                if candidate.name == "bin" and candidate.parent.name == "DevEco Studio":
+                    return candidate.parent
+                return candidate
+
+    executable = hvigor_executable or find_hvigor_executable_from_path()
+    if executable is None:
+        return None
+    executable_path = Path(executable)
+    parents = list(executable_path.parents)
+    for parent in parents:
+        if parent.name == "DevEco Studio":
+            return parent
+    return None
+
+
+def discover_deveco_sdk_home(hvigor_executable: Path | None = None) -> Path | None:
+    studio_home = discover_deveco_studio_home(hvigor_executable)
+    if studio_home is None:
+        return None
+    candidate = studio_home / "sdk"
+    return candidate if candidate.exists() else None
+
+
+def discover_java_home(hvigor_executable: Path | None = None) -> Path | None:
+    studio_home = discover_deveco_studio_home(hvigor_executable)
+    if studio_home is None:
+        return None
+    candidate = studio_home / "jbr"
+    return candidate if candidate.exists() else None
+
+
+def find_hvigor_executable_from_path() -> Path | None:
+    for name in ("hvigorw.bat", "hvigorw", "hvigor.bat", "hvigor"):
+        executable = shutil.which(name)
+        if executable:
+            return Path(executable)
+    return None
 
 
 def hvigor_command(arkts_dir: Path, action: str, executable_override: Path | None = None) -> list[str]:
@@ -193,14 +244,46 @@ def run_local_command(command: Sequence[str], cwd: Path, env: Mapping[str, str],
 
 
 def validate_dsl_array_file(path: Path) -> None:
-    with open(path, "r", encoding="utf-8") as f:
-        try:
-            value = json.load(f)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid DSL array file at {path}: {exc}") from exc
+    load_dsl_records(path)
 
-    if not isinstance(value, list):
-        raise ValueError(f"DSL file must be a JSON array: {path}")
-    for index, item in enumerate(value):
+
+def load_dsl_records(path: Path) -> list[dict]:
+    with open(path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as array_exc:
+        try:
+            records = load_jsonl_records(text, path)
+        except ValueError as jsonl_exc:
+            raise ValueError(f"Invalid DSL file at {path}: {array_exc}; {jsonl_exc}") from array_exc
+    else:
+        if not isinstance(value, list):
+            raise ValueError(f"DSL file must be a JSON array or JSONL objects: {path}")
+        records = value
+
+    validate_dsl_records(records, path)
+    return records
+
+
+def load_jsonl_records(text: str, path: Path) -> list[dict]:
+    records: list[dict] = []
+    for line_no, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSONL record at line {line_no}: {exc}") from exc
+        records.append(value)
+    if not records:
+        raise ValueError("No JSONL records found")
+    return records
+
+
+def validate_dsl_records(records: list[dict], path: Path) -> None:
+    for index, item in enumerate(records):
         if not isinstance(item, dict):
-            raise ValueError(f"DSL array item must be a JSON object at {path}[{index}]")
+            raise ValueError(f"DSL record must be a JSON object at {path}[{index}]")
