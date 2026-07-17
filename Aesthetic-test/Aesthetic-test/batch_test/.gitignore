@@ -1,9 +1,0 @@
-# 忽略所有测试图片，但保留说明文件
-*.png
-*.jpg
-*.jpeg
-*_query.txt
-*_dsl.json
-
-# 保留 README
-!README.md

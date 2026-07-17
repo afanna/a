@@ -1,4 +1,0 @@
-﻿
-# 加载鸿蒙业务专用规则
-rule_configs:
-  - ./rules/harmony_rules.json

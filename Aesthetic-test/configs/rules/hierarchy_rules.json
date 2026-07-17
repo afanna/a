@@ -1,8 +1,0 @@
-{
-  "rules_version": "2026-06-24",
-  "rules": [
-    {"id": "R4.1", "name": "视觉中心偏移", "module": "hierarchy", "dimension": "视觉层次", "severity": "MINOR", "max_deduction": 3.0, "enabled": true, "description": "视觉重心偏离几何中心过远"},
-    {"id": "R4.2", "name": "密度均衡", "module": "hierarchy", "dimension": "视觉层次", "severity": "MINOR", "max_deduction": 4.0, "enabled": true, "description": "四象限密度差异过大"},
-    {"id": "R4.3", "name": "尺寸层级", "module": "hierarchy", "dimension": "视觉层次", "severity": "MINOR", "max_deduction": 3.0, "enabled": true, "description": "字体大小缺乏层次感"}
-  ]
-}

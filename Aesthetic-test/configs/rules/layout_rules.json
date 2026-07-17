@@ -1,9 +1,0 @@
-{
-  "rules_version": "2026-06-24",
-  "rules": [
-    {"id": "R2.1", "name": "贴边检测", "module": "layout", "dimension": "布局空白", "severity": "MAJOR", "max_deduction": 5.0, "enabled": true, "description": "元素距离卡片边缘过近"},
-    {"id": "R2.2", "name": "元素重叠", "module": "layout", "dimension": "布局空白", "severity": "FATAL", "max_deduction": 8.0, "enabled": true, "description": "检测重叠的边界框"},
-    {"id": "R2.3", "name": "留白比例", "module": "layout", "dimension": "布局空白", "severity": "MINOR", "max_deduction": 5.0, "enabled": true, "description": "留白过多或过少"},
-    {"id": "R2.4", "name": "元素溢出", "module": "layout", "dimension": "布局空白", "severity": "FATAL", "max_deduction": 8.0, "enabled": true, "description": "元素超出卡片边界"}
-  ]
-}
