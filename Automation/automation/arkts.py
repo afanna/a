@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from .config import AutomationConfig
-from .hdc import HdcClient
+from .hdc import CommandResult, HdcClient, format_command_failure
 from .logger import get_logger
 
 EXTENDED_CATALOG_ID = "ohos.a2ui.extended.catalog"
@@ -106,7 +106,8 @@ class ArkTsRunner:
 
             self._log.info("bm install start")
             t_install = time.monotonic()
-            self.hdc.shell("bm", "install", "-p", remote_dir, timeout=self.config.build_timeout)
+            install = self.hdc.shell("bm", "install", "-p", remote_dir, timeout=self.config.build_timeout, check=False)
+            validate_bm_install_result(install)
             self._log.info("bm install done: %.1fs", time.monotonic() - t_install)
         finally:
             self.hdc.shell("rm", "-rf", remote_dir, timeout=30, check=False)
@@ -267,6 +268,22 @@ def run_local_command(command: Sequence[str], cwd: Path, env: Mapping[str, str],
             f"Command failed with exit code {completed.returncode}: {' '.join(command)}\n"
             f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
         )
+
+
+def validate_bm_install_result(result: CommandResult) -> None:
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+    lower_output = output.lower()
+    failure_markers = (
+        "failed",
+        "failure",
+        "error",
+        "exception",
+        "verify signature",
+        "signature verification",
+        "install parse profile prop check error",
+    )
+    if result.returncode != 0 or any(marker in lower_output for marker in failure_markers):
+        raise RuntimeError(f"bm install failed:\n{format_command_failure(result)}")
 
 
 def validate_dsl_array_file(path: Path) -> None:

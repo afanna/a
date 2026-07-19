@@ -31,7 +31,7 @@ class AutomationConfig:
     render_work_dir_name: str | None = None
     rawfile_target_rel: Path = Path("entry/src/main/resources/rawfile/test.json")
     hap_output_dir_rel: Path = Path("entry/build/default/outputs/default")
-    signed_hap_name: str = "entry-default-unsigned.hap"
+    signed_hap_name: str = "entry-default-signed.hap"
     hvigor_executable: Path | None = None
     bundle_name: str = "com.example.myapplication"
     ability_name: str = "EntryAbility"

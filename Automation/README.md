@@ -47,6 +47,15 @@ python Automation\main.py batch
 python Automation\main.py batch --sn "你的设备SN"
 ```
 
+也可以在 `Automation/config/automation.json` 里设置默认设备：
+
+```json
+"sn": null,
+"signed_hap_name": "entry-default-signed.hap"
+```
+
+`sn` 为 `null` 时会自动使用唯一在线设备；真机填写真实 SN，模拟器可填写 `127.0.0.1:5555`。命令行 `--sn` 会覆盖配置文件。真机安装需要使用 `entry-default-signed.hap`。
+
 多设备并行模式会自动发现所有 HDC 设备，每台设备都会完整执行一遍 `queries.jsonl`：
 
 ```powershell
@@ -73,7 +82,7 @@ python Automation\main.py batch --deveco-sdk-home "D:\DevEco Studio\sdk" --java-
 
 注意：`--deveco-sdk-home` 和 `--java-home` 只是运行参数，不是单独的“设置环境”命令；每次运行仍然需要带 `one`、`one-from-file` 或 `batch` 子命令。
 
-Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、force-stop、`bm uninstall -n <bundle>`、`bm install -p`、清理临时目录、force-stop、`aa start` 启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
+Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、force-stop、`bm uninstall -n <bundle>`、`bm install -p`、检查安装输出、清理临时目录、force-stop、`aa start` 启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
 
 ## 输出
 

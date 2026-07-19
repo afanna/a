@@ -7,6 +7,10 @@
     // HDC 可执行文件名或完整路径。hdc 已在 PATH 里时保持 "hdc"。
     "hdc": "hdc",
 
+    // 默认设备 SN。null 表示自动使用唯一在线设备；真机填写真实 SN，模拟器可填写 "127.0.0.1:5555"。
+    // 命令行 --sn 优先级高于这里。
+    "sn": null,
+
     // DevEco SDK 和 JDK 路径，用于 ArkTS 编译签名。
     "deveco_sdk_home": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/sdk",
     "java_home": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/jbr",
@@ -24,9 +28,8 @@
     // HAP 构建输出目录，相对于渲染工程根目录。
     "hap_output_dir": "entry/build/default/outputs/default",
 
-    // 自动化安装的 HAP 文件名。当前 A2UI_Render 未配置签名，默认产物是 unsigned。
-    // 如果后续配置签名并生成 signed HAP，只需要改这个文件名。
-    "signed_hap_name": "entry-default-unsigned.hap",
+    // 自动化安装的 HAP 文件名。真机需要使用 signed HAP。
+    "signed_hap_name": "entry-default-signed.hap",
 
     // hvigor 可执行文件。null 表示自动查找工程内 hvigorw 或系统 PATH。
     // 如果需要固定路径，可填写：

@@ -107,7 +107,8 @@ class ObsDslCollector:
                     match_path = self._save_hilog_match(qid, line, recent_lines)
                     return url, line.rstrip("\r\n"), match_path
 
-            raise TimeoutError(f"OBS markdown URL not found in hilog for query {qid} after {timeout:g}s")
+            timeout_path = self._save_hilog_snapshot(qid, "TIMEOUT", recent_lines)
+            raise TimeoutError(f"OBS markdown URL not found in hilog for query {qid} after {timeout:g}s: {timeout_path}")
         finally:
             stop_process(process)
             reader.join(timeout=2)
@@ -133,6 +134,20 @@ class ObsDslCollector:
             "",
             "MATCHED_LINE:",
             matched_line.rstrip(),
+            "",
+            "RECENT_LINES:",
+        ]
+        lines.extend(line.rstrip() for line in recent_lines)
+        path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        return path
+
+    def _save_hilog_snapshot(self, qid: str, reason: str, recent_lines: list[str]) -> Path:
+        path = timestamped_artifact_path(self.config.obs_hilog_match_dir, f"{qid}-{reason.lower()}", ".txt")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            f"qid: {qid}",
+            f"reason: {reason}",
+            f"command: {' '.join(self.hdc.command(['shell', 'hilog']))}",
             "",
             "RECENT_LINES:",
         ]
