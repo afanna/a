@@ -50,6 +50,21 @@
     // 单条 query 最多重试次数；失败后 batch 会跳过该 query 继续后续用例。
     "query_max_attempts": 3,
 
+    // DSL 获取来源：obs 表示从 hilog 中的 OBS 链接下载；ui 表示旧的 UI 树提取；auto 表示 OBS 失败后尝试 UI 树兜底。
+    "dsl_source": "obs",
+
+    // 发送 query 并清理 hilog 缓冲后，等待 OBS .md 链接出现的最长秒数。
+    "obs_hilog_timeout": 400,
+
+    // 下载 OBS .md 文件的 HTTP 超时时间，单位秒。
+    "obs_download_timeout": 15,
+
+    // OBS 下载到的 Markdown 原文保存目录。null 表示使用 output/obs_md；多设备并行时会使用 output/{safe_sn}/obs_md。
+    "obs_markdown_dir": null,
+
+    // 匹配到 OBS URL 时的 hilog 行保存目录。null 表示使用 output/obs_hilog；多设备并行时会使用 output/{safe_sn}/obs_hilog。
+    "obs_hilog_match_dir": null,
+
     // ArkTS 构建最长秒数。
     "build_timeout": 300,
 

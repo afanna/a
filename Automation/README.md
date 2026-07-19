@@ -13,6 +13,7 @@
 - `automation/ui_tree.py`：UI 树解析、控件定位和打分。
 - `automation/xiaoyi.py`：等待小艺就绪、发送 query、等待回复、提取 DSL。
 - `automation/dsl.py`：DSL 关键词搜索、JSON 修复和保存。
+- `automation/obs_dsl.py`：从 hilog 中提取 OBS Markdown 链接、下载并解析 genui DSL。
 - `automation/arkts.py`：复制 DSL 到 ArkTS rawfile，构建、安装、启动 ArkTS，并截图。
 - `automation/pipeline.py`：单条和批量流程编排。
 - `automation/card_crop.py`：截图中的卡片区域裁切。
@@ -72,11 +73,13 @@ python Automation\main.py batch --deveco-sdk-home "D:\DevEco Studio\sdk" --java-
 
 注意：`--deveco-sdk-home` 和 `--java-home` 只是运行参数，不是单独的“设置环境”命令；每次运行仍然需要带 `one`、`one-from-file` 或 `batch` 子命令。
 
-Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、`bm install -p`、清理临时目录、force-stop、启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
+Python runner 会直接执行 ArkTS 流程：`hvigor clean`、`hvigor assembleHap`、打印 HAP 输出目录、创建设备临时目录、`hdc file send`、force-stop、`bm uninstall -n <bundle>`、`bm install -p`、清理临时目录、force-stop、`aa start` 启动 Ability。`JAVA_HOME\bin` 会被放到 `PATH` 最前面，确保签名工具使用 DevEco JDK。`--build-timeout` 控制本地构建和安装超时，`--render-wait` 控制应用启动后等待多久再截图。
 
 ## 输出
 
 - DSL 文件：`dsl/{qid}.jsonl`
+- OBS Markdown 原文：`output/obs_md/{timestamp}-{qid}.md`
+- OBS URL 命中日志：`output/obs_hilog/{timestamp}-{qid}.txt`
 - 渲染工程 rawfile 目标：`A2UI_Render/entry/src/main/resources/rawfile/test.json`
 
 DSL 当前按 JSON 数组文件校验，并复制到配置中的渲染工程 rawfile 目标。
@@ -90,6 +93,8 @@ DSL 当前按 JSON 数组文件校验，并复制到配置中的渲染工程 raw
 使用 `parallel` 时，输出会按设备隔离：
 
 - DSL 文件：`dsl/{safe_sn}/{qid}.jsonl`
+- OBS Markdown 原文：`output/{safe_sn}/obs_md/{timestamp}-{qid}.md`
+- OBS URL 命中日志：`output/{safe_sn}/obs_hilog/{timestamp}-{qid}.txt`
 - 渲染工程工作副本：`Automation/.work/devices/{safe_sn}/A2UI_Render`
 - 完整截图：`output/{safe_sn}/Screenshot/{qid}.jpeg`
 - 裁切卡片：`output/{safe_sn}/card/{qid}.png`
@@ -103,10 +108,17 @@ DSL 当前按 JSON 数组文件校验，并复制到配置中的渲染工程 raw
 配置位置：`Automation/config/automation.json`
 
 ```json
+"dsl_source": "obs",
+"obs_hilog_timeout": 400,
+"obs_download_timeout": 15,
+"obs_markdown_dir": null,
+"obs_hilog_match_dir": null,
 "hilog_on_dsl_failure": true,
 "hilog_capture_seconds": 5,
 "hilog_output_dir": null
 ```
+
+`dsl_source` 默认使用 OBS 方案：发送 query 后清理 hilog 缓冲，启动 `hdc shell hilog` 流式读取，匹配 OBS `.md` 链接并下载解析其中的 `genui` 代码块。需要回到旧 UI 树提取时可设为 `ui`；需要 OBS 失败后尝试旧方案时可设为 `auto`。
 
 ## 常用命令
 

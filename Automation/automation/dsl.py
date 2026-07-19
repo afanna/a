@@ -290,9 +290,19 @@ def dedupe_records(records: list[dict]) -> list[dict]:
 
 def strip_code_fence(text: str) -> str:
     cleaned = text.strip()
-    cleaned = re.sub(r"^```(?:json|jsonl)?", "", cleaned, flags=re.I).strip()
+    cleaned = re.sub(r"^```[A-Za-z0-9_-]*", "", cleaned, flags=re.I).strip()
     cleaned = re.sub(r"```$", "", cleaned).strip()
     return cleaned
+
+
+def extract_fenced_blocks(text: str, language: str) -> list[str]:
+    blocks: list[str] = []
+    pattern = re.compile(r"```(?P<label>[^\r\n`]*)\r?\n(?P<body>.*?)(?:\r?\n)?```", re.S)
+    for match in pattern.finditer(text):
+        label = match.group("label").strip().lower().split()
+        if label and label[0] == language.lower():
+            blocks.append(match.group("body").strip())
+    return blocks
 
 
 def iter_json_candidates(text: str):

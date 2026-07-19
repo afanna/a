@@ -13,6 +13,9 @@ from .config import AutomationConfig
 from .hdc import HdcClient
 from .logger import get_logger
 
+EXTENDED_CATALOG_ID = "ohos.a2ui.extended.catalog"
+FORM_EXTENDED_CATALOG_ID = "ohos.a2ui.extended.catalog.form"
+
 
 class ArkTsRunner:
     def __init__(self, config: AutomationConfig, hdc: HdcClient):
@@ -40,7 +43,7 @@ class ArkTsRunner:
             raise FileNotFoundError(dsl_path)
         if dsl_path.suffix.lower() != ".jsonl":
             raise ValueError(f"DSL file must be JSONL: {dsl_path}")
-        records = load_dsl_records(dsl_path)
+        records = normalize_dsl_records(load_dsl_records(dsl_path))
         self.config.rawfile_target.parent.mkdir(parents=True, exist_ok=True)
         with open(self.config.rawfile_target, "w", encoding="utf-8") as f:
             json.dump(records, f, ensure_ascii=False, indent=2)
@@ -79,6 +82,28 @@ class ArkTsRunner:
             t_push = time.monotonic()
             self.hdc.run(["file", "send", self.config.signed_hap_path, remote_hap], timeout=self.config.build_timeout)
             self._log.info("hdc file send done: %.1fs", time.monotonic() - t_push)
+
+            self.hdc.shell("aa", "force-stop", self.config.bundle_name, timeout=30, check=False)
+            self._log.info("bm uninstall start: %s", self.config.bundle_name)
+            t_uninstall = time.monotonic()
+            uninstall = self.hdc.shell(
+                "bm",
+                "uninstall",
+                "-n",
+                self.config.bundle_name,
+                timeout=self.config.build_timeout,
+                check=False,
+            )
+            if uninstall.returncode == 0:
+                self._log.info("bm uninstall done: %.1fs", time.monotonic() - t_uninstall)
+            else:
+                self._log.warning(
+                    "bm uninstall skipped or failed: %.1fs stdout=%s stderr=%s",
+                    time.monotonic() - t_uninstall,
+                    uninstall.stdout.strip(),
+                    uninstall.stderr.strip(),
+                )
+
             self._log.info("bm install start")
             t_install = time.monotonic()
             self.hdc.shell("bm", "install", "-p", remote_dir, timeout=self.config.build_timeout)
@@ -98,6 +123,7 @@ class ArkTsRunner:
             self.config.module_name,
             timeout=30,
         )
+        self._log.info("aa start done: bundle=%s ability=%s", self.config.bundle_name, self.config.ability_name)
 
     def remote_temp_suffix(self) -> str:
         safe_sn = self.config.safe_sn or "default"
@@ -287,3 +313,17 @@ def validate_dsl_records(records: list[dict], path: Path) -> None:
     for index, item in enumerate(records):
         if not isinstance(item, dict):
             raise ValueError(f"DSL record must be a JSON object at {path}[{index}]")
+
+
+def normalize_dsl_records(records: list[dict]) -> list[dict]:
+    normalized: list[dict] = []
+    for item in records:
+        copied = dict(item)
+        create_surface = copied.get("createSurface")
+        if isinstance(create_surface, dict) and create_surface.get("catalogId") == EXTENDED_CATALOG_ID:
+            copied["createSurface"] = {
+                **create_surface,
+                "catalogId": FORM_EXTENDED_CATALOG_ID,
+            }
+        normalized.append(copied)
+    return normalized

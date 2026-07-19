@@ -9,6 +9,7 @@ from .config import AutomationConfig
 from .dsl import DSL_KEYWORDS, DslExtraction, DslExtractor, is_complete_dsl
 from .hdc import HdcClient, HdcError
 from .logger import get_logger
+from .obs_dsl import ObsDslCollector
 from .ui_tree import UiTree
 
 
@@ -20,10 +21,17 @@ class QueryResult:
 
 
 class XiaoyiClient:
-    def __init__(self, config: AutomationConfig, hdc: HdcClient, extractor: DslExtractor | None = None):
+    def __init__(
+        self,
+        config: AutomationConfig,
+        hdc: HdcClient,
+        extractor: DslExtractor | None = None,
+        obs_collector: ObsDslCollector | None = None,
+    ):
         self.config = config
         self.hdc = hdc
         self.extractor = extractor or DslExtractor()
+        self.obs_collector = obs_collector or ObsDslCollector(config, hdc)
         self.dump_path = config.work_dir / "current_ui_tree.json"
         self.last_dsl_fingerprint: str | None = None
         self._log = get_logger("xiaoyi", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
@@ -63,10 +71,7 @@ class XiaoyiClient:
             try:
                 self.wait_ready()
                 self.send_query(query)
-                deadline = time.monotonic() + self.config.query_attempt_timeout
-                time.sleep(min(self.config.post_query_wait, max(0, deadline - time.monotonic())))
-                self._scroll_down(check=False)
-                extraction = self._wait_and_extract(qid, deadline)
+                extraction = self._collect_dsl_after_query_sent(qid)
                 self.last_dsl_fingerprint = dsl_fingerprint(extraction)
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
@@ -79,6 +84,65 @@ class XiaoyiClient:
                 if attempt < self.config.query_max_attempts:
                     continue
         raise TimeoutError(f"DSL not found for query {qid} after {self.config.query_max_attempts} attempts") from last_error
+
+    def _collect_dsl_after_query_sent(self, qid: str) -> DslExtraction:
+        source = self.config.dsl_source
+        if source == "ui":
+            return self._collect_ui_dsl(qid)
+        if source == "obs":
+            return self._collect_obs_dsl(qid)
+        if source == "auto":
+            try:
+                return self._collect_obs_dsl(qid)
+            except TimeoutError as exc:
+                self._log.error("[%s] stage=OBS_DSL_FAILED_FALLBACK_UI error=%s", qid, exc)
+                return self._collect_ui_dsl(qid)
+        raise RuntimeError(f"Unsupported DSL source: {source}")
+
+    def _collect_obs_dsl(self, qid: str) -> DslExtraction:
+        try:
+            result = self.obs_collector.collect_after_query_sent(qid)
+        except HdcError:
+            raise
+        except Exception as exc:
+            raise TimeoutError(f"OBS DSL collection failed for query {qid}: {exc}") from exc
+        self._wait_for_reply_stable(qid)
+        if not self._is_complete_new_extraction(result.extraction):
+            raise TimeoutError(f"OBS DSL not found for query {qid}")
+        return result.extraction
+
+    def _collect_ui_dsl(self, qid: str) -> DslExtraction:
+        deadline = time.monotonic() + self.config.query_attempt_timeout
+        time.sleep(min(self.config.post_query_wait, max(0, deadline - time.monotonic())))
+        self._scroll_down(check=False)
+        return self._wait_and_extract(qid, deadline)
+
+    def _wait_for_reply_stable(self, qid: str) -> None:
+        deadline = time.monotonic() + self.config.query_attempt_timeout
+        last_len = -1
+        stable_count = 0
+
+        while time.monotonic() <= deadline:
+            tree = self.dump_tree()
+            busy, _has_dsl, reply_len = tree.reply_state(DSL_KEYWORDS)
+            if reply_len == last_len:
+                stable_count += 1
+            else:
+                stable_count = 0
+                last_len = reply_len
+
+            if not busy or stable_count >= 2:
+                self._log.info(
+                    "[%s] stage=REPLY_STABLE busy=%s stable_count=%d reply_len=%d",
+                    qid,
+                    busy,
+                    stable_count,
+                    reply_len,
+                )
+                return
+            time.sleep(self.config.poll_interval)
+
+        raise TimeoutError(f"Timed out waiting for Xiaoyi reply to become stable for query {qid}")
 
     def _ensure_input(self) -> tuple[int, int]:
         tree = self.dump_tree()

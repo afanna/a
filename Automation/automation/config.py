@@ -16,6 +16,11 @@ class AutomationConfig:
     post_query_wait: float = 30
     query_attempt_timeout: float = 90
     query_max_attempts: int = 3
+    dsl_source: str = "obs"
+    obs_hilog_timeout: float = 400
+    obs_download_timeout: float = 15
+    obs_markdown_dir_override: Path | None = None
+    obs_hilog_match_dir_override: Path | None = None
     poll_interval: float = 2
     scroll_limit: int = 12
     render_wait: float = 5
@@ -140,6 +145,18 @@ class AutomationConfig:
         if self.hilog_output_dir_override:
             return self.hilog_output_dir_override
         return self.output_dir / "logs"
+
+    @property
+    def obs_markdown_dir(self) -> Path:
+        if self.obs_markdown_dir_override:
+            return self.obs_markdown_dir_override
+        return self.output_dir / "obs_md"
+
+    @property
+    def obs_hilog_match_dir(self) -> Path:
+        if self.obs_hilog_match_dir_override:
+            return self.obs_hilog_match_dir_override
+        return self.output_dir / "obs_hilog"
 
     @property
     def default_card_crop_config_path(self) -> Path:

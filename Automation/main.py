@@ -95,6 +95,11 @@ def add_common_arguments(
     parser.add_argument("--post-query-wait", type=float, default=default, help=hidden)
     parser.add_argument("--query-attempt-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--query-max-attempts", type=int, default=default, help=hidden)
+    parser.add_argument("--dsl-source", choices=["obs", "ui", "auto"], default=default, help=hidden)
+    parser.add_argument("--obs-hilog-timeout", type=float, default=default, help=hidden)
+    parser.add_argument("--obs-download-timeout", type=float, default=default, help=hidden)
+    parser.add_argument("--obs-markdown-dir", type=Path, default=default, help=hidden)
+    parser.add_argument("--obs-hilog-match-dir", type=Path, default=default, help=hidden)
     parser.add_argument("--build-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--render-wait", type=float, default=default, help=hidden)
     parser.add_argument("--deveco-sdk-home", type=Path, default=default, help=hidden)
@@ -194,6 +199,11 @@ def make_config(
         "post_query_wait": value("post_query_wait", 30),
         "query_attempt_timeout": value("query_attempt_timeout", 90),
         "query_max_attempts": value("query_max_attempts", 3),
+        "dsl_source": value("dsl_source", "obs"),
+        "obs_hilog_timeout": value("obs_hilog_timeout", 400),
+        "obs_download_timeout": value("obs_download_timeout", 15),
+        "obs_markdown_dir_override": value("obs_markdown_dir", None),
+        "obs_hilog_match_dir_override": value("obs_hilog_match_dir", None),
         "build_timeout": value("build_timeout", 300),
         "render_wait": value("render_wait", 5),
         "render_project_dir": value("render_project_dir", "A2UI_Render"),
@@ -343,8 +353,14 @@ def coerce_automation_values(values: dict) -> dict:
         "card_crop_config",
         "rule_check_config_dir",
         "hilog_output_dir_override",
+        "obs_markdown_dir_override",
+        "obs_hilog_match_dir_override",
     }
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
+    if "dsl_source" in coerced:
+        coerced["dsl_source"] = str(coerced["dsl_source"]).strip().lower()
+        if coerced["dsl_source"] not in {"obs", "ui", "auto"}:
+            raise SystemExit("dsl_source must be one of: obs, ui, auto")
     if "context_clear_points" in coerced:
         coerced["context_clear_points"] = coerce_points(coerced["context_clear_points"])
     if coerced.get("project_root") == Path("."):
