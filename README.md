@@ -8,11 +8,20 @@
 Query -> 小艺生成 DSL -> 提取 DSL -> ArkTS 渲染 -> 截图 -> 裁切卡片 -> 停止
 ```
 
-普通自动化流程不再自动执行规则评分或视觉模型评分。最终 `output` 目录会保留整屏截图和裁切后的卡片图，文件名使用 query id，例如：
+普通自动化流程不再自动执行视觉模型评分；裁切后可选执行本地纯规则美学评分（`enable_rule_check`，默认在 `Automation/config/automation.json` 中开启）。最终 `output` 目录会保留整屏截图和裁切后的卡片图，文件名使用 query id，例如：
 
 ```text
 output/Screenshot/weather_card_01.jpeg
 output/weather_card_01.png
+```
+
+开启规则评分后还会产出（不调用任何外部模型）：
+
+```text
+output/reports/weather_card_01/result.json   # 单样本机器可读评分结果
+output/reports/weather_card_01/report.html   # 单样本可视化报告（内嵌图片）
+output/reports/model_scores.jsonl            # 本轮批次汇总分数（每行一个样本）
+output/reports/model_report.html             # 本轮批次画廊汇总报告
 ```
 
 完整截图用于后续分析，会保存在 `output/Screenshot`。日志、裁切 debug 图和临时工作目录会写入 `Automation/.work/`，避免污染最终数据目录。
@@ -31,6 +40,12 @@ output/weather_card_01.png
 - DevEco Studio，本机默认路径参考 `Automation/config/automation.json`
 - HDC 可用，并且设备或模拟器已开启调试
 - HarmonyOS ArkTS 工程可正常构建、签名、安装
+
+规则美学评分（`Aesthetic_Rule_Check/`，纯本地计算）需要额外依赖，已汇总在根目录 `requirements.txt`：
+
+```powershell
+pip install -r requirements.txt
+```
 
 验证环境：
 
@@ -338,6 +353,8 @@ Automation-screenshot/
 │   │   ├── xiaoyi.py               # 小艺交互与 DSL 提取
 │   │   ├── arkts.py                # ArkTS 构建、安装、启动、截图
 │   │   ├── card_crop.py            # 卡片裁切
+│   │   ├── rule_check.py           # 纯规则美学评分接线（调用 Aesthetic_Rule_Check）
+│   │   ├── rule_summary.py         # 规则评分批次汇总（jsonl + 画廊 html）
 │   │   ├── hdc.py                  # HDC 封装
 │   │   ├── dsl.py                  # DSL 解析与保存
 │   │   ├── queries.py              # query 文件读取
@@ -347,10 +364,10 @@ Automation-screenshot/
 │   │   └── card_crop.json          # 裁切坐标配置
 │   └── .work/                      # 临时工作目录和日志
 ├── A2UI_Render/                    # HarmonyOS 渲染工程模板
-├── Aesthetic_Rule_Check/           # 规则评分项目，普通流程不自动调用
+├── Aesthetic_Rule_Check/           # 内置纯规则美学评分包（enable_rule_check 时自动调用）
 ├── visual_aesthetics/              # 独立视觉评分模块
 ├── dsl/                            # DSL 产物
-├── output/                         # 最终卡片图片
+├── output/                         # 最终卡片图片与规则评分报告（output/reports/）
 ├── queries.jsonl                   # query 用例库
 └── README.md
 ```
@@ -400,13 +417,18 @@ python Automation\main.py crop-card --input .\output\raw.jpeg --output .\output\
 
 ### 为什么没有评分报告
 
-这是当前设计：普通流程只负责生成 DSL 和裁切卡片，不再自动评分。
+普通流程只负责生成 DSL 和裁切卡片，视觉模型评分保持关闭。
+
+纯规则美学评分由 `enable_rule_check` 控制（`Automation/config/automation.json` 中已默认开启），
+开启后批次结束会在 `output/reports/` 下生成单样本报告与汇总画廊；若该开关为 false 或本轮没有
+成功的规则评分结果，则不会写出 `model_scores.jsonl` / `model_report.html`。
 
 后续迭代要做“视觉教师报告 + 规则报告 + 自动比对 + 参数建议”时，建议在新项目或独立迭代脚本里消费这里生成的：
 
 ```text
 dsl/
 output/
+output/reports/
 queries.jsonl
 ```
 
@@ -443,6 +465,6 @@ python Automation\main.py one --qid test --query "生成一个测试卡片"
 
 - 不要提交 API key、`.env`、日志、截图、缓存和临时工作目录。
 - `A2UI_Render/` 是渲染模板工程，改动前需要明确确认。
-- 普通流程不调用视觉模型，也不调用规则评分。
+- 普通流程不调用视觉模型；`enable_rule_check` 开启时会调用内置 `Aesthetic_Rule_Check/` 纯规则评分，全部本地计算。
 - `aesthetics` 命令只用于手动离线评测已有图片。
 - 规则迭代和视觉教师标定建议作为后续独立项目处理。

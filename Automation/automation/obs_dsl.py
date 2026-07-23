@@ -8,6 +8,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from .config import AutomationConfig, safe_path_name
 from .dsl import DslExtraction, dedupe_records, extract_fenced_blocks, is_complete_dsl, repair_and_extract
@@ -16,7 +17,9 @@ from .logger import get_logger
 
 
 GEN_WIDGET_RESULT_RE = re.compile(r"genWidgetResult\s+result:(\S+)")
-OBS_MD_URL_RE = re.compile(r"https?://[^\s]+\.myhuaweicloud\.com[^\s]+\.md[^\s]*")
+OBS_MD_URL_RE = re.compile(r"https?://[^\s]+\.myhuaweicloud\.com[^\s]+\.md[^\s\]\[\(\)\{\}<>'\",;]*")
+# hilog 日志可能在 URL 后紧跟包裹符号，提取后统一剥离
+_URL_TRAILING_STRIP = ")]}>,;'\"\\"
 
 
 @dataclass(frozen=True)
@@ -28,49 +31,37 @@ class ObsDslResult:
     elapsed_seconds: float
 
 
+@dataclass
+class ObsHilogStream:
+    process: subprocess.Popen[str]
+    reader: threading.Thread
+    line_queue: queue.Queue[str | None]
+    recent_lines: list[str]
+    started: float
+
+
 class ObsDslCollector:
     def __init__(self, config: AutomationConfig, hdc: HdcClient):
         self.config = config
         self.hdc = hdc
         self._log = get_logger("obs_dsl", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
 
-    def collect_after_query_sent(self, qid: str) -> ObsDslResult:
-        started = time.monotonic()
+    def collect_after_query_sent(
+        self,
+        qid: str,
+        *,
+        accept_extraction: Callable[[DslExtraction], bool] | None = None,
+    ) -> ObsDslResult:
+        stream = self.start_stream(qid)
+        return self.collect_from_stream(qid, stream, accept_extraction=accept_extraction)
+
+    def start_stream(self, qid: str) -> ObsHilogStream:
         clear_result = self.hdc.shell("hilog", "-r", timeout=10, check=False)
         if clear_result.returncode != 0:
             self._log.warning("[%s] stage=OBS_HILOG_CLEAR_FAILED error=%s", qid, format_command_failure(clear_result))
 
-        url, matched_line, match_path = self._wait_for_obs_url(qid)
-        markdown = self._download_markdown(url)
-        markdown_path = self._save_markdown(qid, markdown)
-        extraction = parse_obs_markdown(qid, markdown)
-        if not is_complete_dsl(extraction.records):
-            raise TimeoutError(f"OBS DSL is incomplete for query {qid}: {markdown_path}")
-
-        elapsed = time.monotonic() - started
-        self._log.info(
-            "[%s] stage=OBS_DSL_READY url=%s markdown=%s match=%s elapsed_ms=%d",
-            qid,
-            url,
-            markdown_path,
-            match_path,
-            int(elapsed * 1000),
-        )
-        self._log.debug("[%s] stage=OBS_DSL_MATCH line=%s", qid, matched_line)
-        return ObsDslResult(
-            extraction=extraction,
-            url=url,
-            markdown_path=markdown_path,
-            hilog_match_path=match_path,
-            elapsed_seconds=elapsed,
-        )
-
-    def _wait_for_obs_url(self, qid: str) -> tuple[str, str, Path]:
         command = self.hdc.command(["shell", "hilog"])
-        timeout = max(0.1, float(self.config.obs_hilog_timeout))
-        deadline = time.monotonic() + timeout
         line_queue: queue.Queue[str | None] = queue.Queue()
-
         try:
             process = subprocess.Popen(
                 command,
@@ -86,32 +77,85 @@ class ObsDslCollector:
 
         reader = threading.Thread(target=_read_process_lines, args=(process, line_queue), daemon=True)
         reader.start()
-        recent_lines: list[str] = []
+        self._log.info("[%s] stage=OBS_HILOG_STREAM_STARTED command=%s", qid, " ".join(command))
+        return ObsHilogStream(
+            process=process,
+            reader=reader,
+            line_queue=line_queue,
+            recent_lines=[],
+            started=time.monotonic(),
+        )
+
+    def collect_from_stream(
+        self,
+        qid: str,
+        stream: ObsHilogStream,
+        *,
+        accept_extraction: Callable[[DslExtraction], bool] | None = None,
+    ) -> ObsDslResult:
+        timeout = max(0.1, float(self.config.obs_hilog_timeout))
+        deadline = stream.started + timeout
+        accept_extraction = accept_extraction or (lambda _extraction: True)
+        seen_urls: set[str] = set()
 
         try:
             while time.monotonic() <= deadline:
                 try:
-                    line = line_queue.get(timeout=0.5)
+                    line = stream.line_queue.get(timeout=0.5)
                 except queue.Empty:
-                    if process.poll() is not None:
+                    if stream.process.poll() is not None:
                         break
                     continue
                 if line is None:
                     break
-                recent_lines.append(line.rstrip("\r\n"))
-                if len(recent_lines) > 200:
-                    recent_lines.pop(0)
+                stream.recent_lines.append(line.rstrip("\r\n"))
+                if len(stream.recent_lines) > 200:
+                    stream.recent_lines.pop(0)
 
                 url = extract_obs_url(line)
                 if url:
-                    match_path = self._save_hilog_match(qid, line, recent_lines)
-                    return url, line.rstrip("\r\n"), match_path
+                    if url in seen_urls:
+                        self._log.debug("[%s] stage=OBS_URL_DUPLICATE url=%s", qid, url)
+                        continue
+                    seen_urls.add(url)
+                    match_path = self._save_hilog_match(qid, line, stream.recent_lines)
+                    url_path = self._save_obs_url(qid, url)
+                    markdown = self._download_markdown(url)
+                    markdown_path = self._save_markdown(qid, markdown)
+                    extraction = parse_obs_markdown(qid, markdown)
+                    if not is_complete_dsl(extraction.records):
+                        raise TimeoutError(f"OBS DSL is incomplete for query {qid}: {markdown_path}")
+                    if not accept_extraction(extraction):
+                        self._log.info("[%s] stage=OBS_DSL_STALE url=%s markdown=%s match=%s url_file=%s", qid, url, markdown_path, match_path, url_path)
+                        continue
 
-            timeout_path = self._save_hilog_snapshot(qid, "TIMEOUT", recent_lines)
+                    elapsed = time.monotonic() - stream.started
+                    self._log.info(
+                        "[%s] stage=OBS_DSL_READY url=%s markdown=%s match=%s url_file=%s elapsed_ms=%d",
+                        qid,
+                        url,
+                        markdown_path,
+                        match_path,
+                        url_path,
+                        int(elapsed * 1000),
+                    )
+                    self._log.debug("[%s] stage=OBS_DSL_MATCH line=%s", qid, line.rstrip("\r\n"))
+                    return ObsDslResult(
+                        extraction=extraction,
+                        url=url,
+                        markdown_path=markdown_path,
+                        hilog_match_path=match_path,
+                        elapsed_seconds=elapsed,
+                    )
+
+            timeout_path = self._save_hilog_snapshot(qid, "TIMEOUT", stream.recent_lines)
             raise TimeoutError(f"OBS markdown URL not found in hilog for query {qid} after {timeout:g}s: {timeout_path}")
         finally:
-            stop_process(process)
-            reader.join(timeout=2)
+            self.stop_stream(stream)
+
+    def stop_stream(self, stream: ObsHilogStream) -> None:
+        stop_process(stream.process)
+        stream.reader.join(timeout=2)
 
     def _download_markdown(self, url: str) -> str:
         timeout = max(0.1, float(self.config.obs_download_timeout))
@@ -123,6 +167,12 @@ class ObsDslCollector:
         path = timestamped_artifact_path(self.config.obs_markdown_dir, qid, ".md")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(markdown, encoding="utf-8")
+        return path
+
+    def _save_obs_url(self, qid: str, url: str) -> Path:
+        path = timestamped_artifact_path(self.config.obs_hilog_match_dir, qid, ".url")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"qid: {qid}\nurl: {url}\n", encoding="utf-8")
         return path
 
     def _save_hilog_match(self, qid: str, matched_line: str, recent_lines: list[str]) -> Path:
@@ -183,14 +233,18 @@ def extract_obs_url(line: str) -> str | None:
         candidate = result_match.group(1)
         url_match = OBS_MD_URL_RE.search(candidate)
         if url_match:
-            return url_match.group(0)
+            return _clean_url(url_match.group(0))
         if candidate.startswith(("http://", "https://")):
-            return candidate
+            return _clean_url(candidate)
 
     url_match = OBS_MD_URL_RE.search(line)
     if url_match:
-        return url_match.group(0)
+        return _clean_url(url_match.group(0))
     return None
+
+
+def _clean_url(url: str) -> str:
+    return url.rstrip(_URL_TRAILING_STRIP)
 
 
 def parse_obs_markdown(qid: str, markdown: str) -> DslExtraction:

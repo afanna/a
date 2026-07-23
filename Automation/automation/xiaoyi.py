@@ -45,15 +45,30 @@ class XiaoyiClient:
 
     def wait_ready(self) -> None:
         deadline = time.monotonic() + self.config.ready_timeout
+        last_len = -1
+        stable_count = 0
+
         while time.monotonic() <= deadline:
             tree = self.dump_tree()
-            if tree.is_chat_ready():
+            busy, _has_dsl, reply_len = tree.reply_state(DSL_KEYWORDS)
+            if reply_len == last_len:
+                stable_count += 1
+            else:
+                stable_count = 0
+                last_len = reply_len
+
+            if tree.is_chat_ready() and (not busy or stable_count >= 2):
+                self._log.info("wait_ready done: busy=%s stable_count=%d reply_len=%d", busy, stable_count, reply_len)
                 return
             time.sleep(self.config.poll_interval)
         self._log.error("wait_ready timeout after %.0fs", self.config.ready_timeout)
-        raise TimeoutError("Timed out waiting for Xiaoyi chat UI to become ready")
+        raise TimeoutError("Timed out waiting for Xiaoyi chat UI to become ready and idle")
 
     def send_query(self, query: str) -> None:
+        send_xy = self.prepare_query(query)
+        self.click_send(send_xy)
+
+    def prepare_query(self, query: str) -> tuple[int, int]:
         input_xy = self._ensure_input()
         self._clear_input(*input_xy)
         self.hdc.ui_input("inputText", *input_xy, query)
@@ -62,7 +77,10 @@ class XiaoyiClient:
         if not send:
             self._log.error("send_query: Send button not found")
             raise RuntimeError("Send button not found after text input")
-        self.hdc.ui_input("click", *send.center)
+        return send.center
+
+    def click_send(self, send_xy: tuple[int, int]) -> None:
+        self.hdc.ui_input("click", *send_xy)
 
     def collect_dsl_for_query(self, qid: str, query: str) -> QueryResult:
         t0 = time.monotonic()
@@ -70,8 +88,7 @@ class XiaoyiClient:
         for attempt in range(1, self.config.query_max_attempts + 1):
             try:
                 self.wait_ready()
-                self.send_query(query)
-                extraction = self._collect_dsl_after_query_sent(qid)
+                extraction = self._send_query_and_collect_dsl(qid, query)
                 self.last_dsl_fingerprint = dsl_fingerprint(extraction)
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
@@ -84,6 +101,42 @@ class XiaoyiClient:
                 if attempt < self.config.query_max_attempts:
                     continue
         raise TimeoutError(f"DSL not found for query {qid} after {self.config.query_max_attempts} attempts") from last_error
+
+    def _send_query_and_collect_dsl(self, qid: str, query: str) -> DslExtraction:
+        source = self.config.dsl_source
+        if source in {"obs", "auto"}:
+            return self._send_query_and_collect_obs(qid, query, allow_ui_fallback=source == "auto")
+        if source == "ui":
+            self.send_query(query)
+            return self._collect_ui_dsl(qid)
+        raise RuntimeError(f"Unsupported DSL source: {source}")
+
+    def _send_query_and_collect_obs(self, qid: str, query: str, *, allow_ui_fallback: bool) -> DslExtraction:
+        send_xy = self.prepare_query(query)
+        stream = self.obs_collector.start_stream(qid)
+        try:
+            self.click_send(send_xy)
+        except Exception:
+            self.obs_collector.stop_stream(stream)
+            raise
+
+        try:
+            result = self.obs_collector.collect_from_stream(
+                qid,
+                stream,
+                accept_extraction=self._is_complete_new_extraction,
+            )
+        except TimeoutError as exc:
+            if not allow_ui_fallback:
+                raise
+            self._log.error("[%s] stage=OBS_DSL_FAILED_FALLBACK_UI error=%s", qid, exc)
+            return self._collect_ui_dsl(qid)
+        except HdcError:
+            raise
+        except Exception as exc:
+            raise TimeoutError(f"OBS DSL collection failed for query {qid}: {exc}") from exc
+        self._wait_for_reply_stable(qid)
+        return result.extraction
 
     def _collect_dsl_after_query_sent(self, qid: str) -> DslExtraction:
         source = self.config.dsl_source
@@ -101,15 +154,30 @@ class XiaoyiClient:
 
     def _collect_obs_dsl(self, qid: str) -> DslExtraction:
         try:
-            result = self.obs_collector.collect_after_query_sent(qid)
+            result = self.obs_collector.collect_after_query_sent(
+                qid,
+                accept_extraction=self._is_complete_new_extraction,
+            )
         except HdcError:
             raise
         except Exception as exc:
             raise TimeoutError(f"OBS DSL collection failed for query {qid}: {exc}") from exc
+        return self._validate_obs_result_after_reply_stable(qid, result.extraction)
+
+    def _collect_obs_dsl_from_stream(self, qid: str, stream) -> DslExtraction:
+        try:
+            result = self.obs_collector.collect_from_stream(qid, stream)
+        except HdcError:
+            raise
+        except Exception as exc:
+            raise TimeoutError(f"OBS DSL collection failed for query {qid}: {exc}") from exc
+        return self._validate_obs_result_after_reply_stable(qid, result.extraction)
+
+    def _validate_obs_result_after_reply_stable(self, qid: str, extraction: DslExtraction) -> DslExtraction:
         self._wait_for_reply_stable(qid)
-        if not self._is_complete_new_extraction(result.extraction):
+        if not self._is_complete_new_extraction(extraction):
             raise TimeoutError(f"OBS DSL not found for query {qid}")
-        return result.extraction
+        return extraction
 
     def _collect_ui_dsl(self, qid: str) -> DslExtraction:
         deadline = time.monotonic() + self.config.query_attempt_timeout

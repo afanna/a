@@ -1,10 +1,12 @@
-﻿# Python
+# Python
 __pycache__/
 *.py[cod]
 
 # Runtime output
 /output/
+/dsl/
 /Automation/.work/
+/.work/
 
 # IDE / local machine files
 /.idea/

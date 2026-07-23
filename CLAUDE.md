@@ -48,6 +48,6 @@ If `python` is not on PATH, stop and report the environment blocker.
 - Device wrapper: `Automation/automation/hdc.py`.
 - Xiaoyi UI and DSL collection: `Automation/automation/xiaoyi.py`, `dsl.py`, `ui_tree.py`.
 - ArkTS build/install/screenshot: `Automation/automation/arkts.py`.
-- Scoring: `visual_aesthetics/`.
+- Scoring: pure-rule package vendored at `Aesthetic_Rule_Check/` (enabled by `enable_rule_check`, wired via `Automation/automation/rule_check.py` + `rule_summary.py`, artifacts under `output/reports/`). The old `visual_aesthetics/` VLM scoring is removed; the `aesthetics` subcommand stays disabled — do not re-enable it.
 
 Risk governance update: previously observed runtime risks have been remediated, including logger wiring, timers/counters, send-button flow, batch summary, and no-SN ArkTS working-copy isolation. `python --version` and py-compile now pass; the pipeline still needs device-backed validation when HDC reports a connected target.

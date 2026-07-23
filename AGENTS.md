@@ -74,7 +74,8 @@ Detailed tooling inventory is in `agents.d/tooling.md`.
 ## Repository Map
 - `Automation/main.py`: CLI entry point.
 - `Automation/automation/`: pipeline, HDC, Xiaoyi, DSL, ArkTS, query, UI tree, and logging modules.
-- `visual_aesthetics/`: scoring configuration, model adapter, judge API, cache, and report builder.
+- `visual_aesthetics/`: scoring configuration, model adapter, judge API, cache, and report builder (currently removed/disabled; the `aesthetics` subcommand is unavailable).
+- `Aesthetic_Rule_Check/`: vendored, self-contained pure-rule aesthetics scoring package (no external model calls). Enabled via `enable_rule_check` in `Automation/config/automation.json`; wired in through `Automation/automation/rule_check.py` and aggregated by `Automation/automation/rule_summary.py`. Outputs: `output/reports/{qid}/result.json`, `output/reports/{qid}/report.html`, `output/reports/model_scores.jsonl`, `output/reports/model_report.html`. Extra deps in root `requirements.txt`.
 - `ArkTs/`: source ArkTS template. Treat as protected; multi-device work copies it to `Automation/.work/devices/{SN}/ArkTs`.
 - `queries.jsonl`: query case library.
 - `dsl/`: generated DSL artifacts, ignored by git.

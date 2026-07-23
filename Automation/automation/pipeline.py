@@ -20,6 +20,8 @@ class RenderResult:
     dsl_path: Path
     screenshot_path: Path
     card_path: Path | None = None
+    # 纯规则美学评分的单样本报告目录（output/reports/{qid}），未启用或失败时为 None
+    rule_report_path: Path | None = None
 
 
 class AutomationPipeline:
@@ -38,7 +40,8 @@ class AutomationPipeline:
         query_result = self.xiaoyi.collect_dsl_for_query(case.qid, case.query)
         screenshot = self.arkts.render(case.qid, query_result.dsl_path)
         card_path = self._crop_card(case.qid, screenshot)
-        return RenderResult(case.qid, query_result.dsl_path, screenshot, card_path)
+        rule_report_path = self._rule_check_card(case.qid, case.query, query_result.dsl_path, card_path)
+        return RenderResult(case.qid, query_result.dsl_path, screenshot, card_path, rule_report_path)
 
     def run_batch(self, queries_path: Path | None = None) -> list[RenderResult]:
         """Run all queries, then render screenshots and crop cards."""
@@ -114,6 +117,7 @@ class AutomationPipeline:
         t0 = time.monotonic()
         render_fail = 0
         render_results: list[RenderResult] = []
+        query_map = self._load_query_map()
         for dsl_path in dsl_files:
             qid = qid_from_dsl_path(dsl_path, self.config.safe_sn)
             try:
@@ -123,7 +127,8 @@ class AutomationPipeline:
                 self._log.error("Render failed: qid=%s dsl=%s error=%s", qid, dsl_path, exc)
                 continue
             card_path = self._crop_card(qid, screenshot)
-            render_results.append(RenderResult(qid, dsl_path, screenshot, card_path))
+            rule_report_path = self._rule_check_card(qid, query_map.get(qid, ""), dsl_path, card_path)
+            render_results.append(RenderResult(qid, dsl_path, screenshot, card_path, rule_report_path))
 
         if log_summary:
             self._log.info(
@@ -135,6 +140,8 @@ class AutomationPipeline:
                 sum(1 for result in render_results if result.card_path is None),
                 time.monotonic() - t0,
             )
+        # 批次渲染完成后聚合本轮规则评分产物（未启用或无结果时自动跳过）
+        self._write_rule_summary(render_results)
         return render_results
 
     def _should_crop_cards(self) -> bool:
@@ -158,6 +165,57 @@ class AutomationPipeline:
             result.path,
             result.elapsed_seconds,
         )
+
+    def _load_query_map(self) -> dict[str, str]:
+        """按 qid 查找 query 文本，供规则评分使用；queries 文件不可读时返回空表。"""
+        try:
+            return {case.qid: case.query for case in load_queries(self.config.queries_path)}
+        except Exception as exc:
+            self._log.warning("Query map load failed, rule check will use empty query: %s", exc)
+            return {}
+
+    def _rule_check_card(
+        self,
+        qid: str,
+        query: str,
+        dsl_path: Path | None,
+        card_path: Path | None,
+    ) -> Path | None:
+        """对裁切后的卡片图执行纯规则美学评分；失败只记日志，不中断流水线。"""
+        if not self.config.enable_rule_check or card_path is None:
+            return None
+        try:
+            from .rule_check import evaluate_card_image
+
+            report_dir = evaluate_card_image(
+                self.config,
+                qid=qid,
+                query=query,
+                dsl_path=dsl_path,
+                image_path=card_path,
+            )
+        except Exception as exc:
+            self._log.error("Rule check failed: qid=%s error=%s", qid, exc)
+            return None
+        self._log.info("Rule check done: qid=%s report=%s", qid, report_dir / "report.html")
+        return report_dir
+
+    def _write_rule_summary(self, render_results: list[RenderResult]) -> None:
+        """批次结束后聚合规则评分，写 model_scores.jsonl 与 model_report.html。"""
+        if not self.config.enable_rule_check:
+            return
+        qids = [result.qid for result in render_results if result.rule_report_path is not None]
+        if not qids:
+            return
+        try:
+            from .rule_summary import build_rule_summary
+
+            outputs = build_rule_summary(self.config, qids)
+        except Exception as exc:
+            self._log.error("Rule summary failed: %s", exc)
+            return
+        if outputs:
+            self._log.info("Rule summary written: scores=%s html=%s", outputs[0], outputs[1])
 
     def _crop_card(self, qid: str, screenshot: Path) -> Path | None:
         if not self.card_cropper:

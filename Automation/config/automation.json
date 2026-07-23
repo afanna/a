@@ -16,7 +16,7 @@
     "java_home": "D:/devecostudio-windows-6.1.1.280/DevEco Studio/jbr",
 
     // 渲染工程目录。相对路径基于项目根目录；也可以填写绝对路径。
-    "render_project_dir": "A2UI_Render",
+    "render_project_dir": "A2UI_Render_0716",
 
     // 渲染工程复制到 Automation/.work 后使用的目录名。null 表示自动使用渲染工程目录名。
     "render_work_dir_name": null,
@@ -109,7 +109,7 @@
 
     // 是否在裁切完成后执行本地纯规则美学评分。
     // 开启后输出到 output/reports，不调用任何外部模型。
-    "enable_rule_check": false,
+    "enable_rule_check": true,
 
     // 卡片裁切配置文件路径，裁切位置变化时优先改这个文件。
     "card_crop_config": "Automation/config/card_crop.json",
