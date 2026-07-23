@@ -3,9 +3,12 @@
 读取 output/reports/{qid}/result.json，聚合写出：
 - output/reports/model_scores.jsonl：每行一个样本的机器可读分数
 - output/reports/model_report.html：单文件画廊汇总报告（缩略图 base64 内嵌，
-  点击卡片经相对路径跳转 {qid}/report.html 单样本详情）
+  JS 数据驱动，支持搜索/等级/问题类型筛选与排序，点击卡片经相对路径跳转
+  {qid}/report.html 单样本详情）
 
-画廊样式参考 Aesthetic_Rule_Check 源项目的 calibration/build_rule_only_summary.py。
+画廊样式对齐 Aesthetic_Rule_Check 源项目的 calibration/build_rule_only_summary.py：
+status 四态（pass / pass_with_warnings / needs_review / fail）、分数分布直方图、
+等级彩色徽章、场景切片、置顶筛选栏。
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from __future__ import annotations
 import base64
 import html
 import json
+import re
 import statistics
 from collections import Counter
 from datetime import datetime
@@ -48,6 +52,11 @@ DEDUCTION_LABELS = {
 
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
 TOP_DEDUCTION_LIMIT = 5
+# validator 语义：置信度低于该值的样本计入 needs_review 信号
+LOW_CONFIDENCE_THRESHOLD = 0.8
+GRADE_ORDER = ["S", "A", "B+", "B", "C", "D"]
+# 分数分布直方图分桶（下界含、上界不含，最后一桶为 <60）
+HISTO_BINS = [(90, 101, "90+"), (80, 90, "80"), (75, 80, "75"), (70, 75, "70"), (60, 70, "60"), (0, 60, "<60")]
 
 
 def _top_deduction_codes(deductions: list[dict], limit: int = TOP_DEDUCTION_LIMIT) -> list[str]:
@@ -135,12 +144,53 @@ def build_rule_summary(
     return config.scores_jsonl_path, config.report_html_path
 
 
+def _scene_of(qid: str) -> str:
+    """从 qid 提取场景标签，如 taskspec_gpt55__Case-29-elderly-care-008 -> elderly-care。"""
+    match = re.search(r"Case-\d+-(.+?)-\d+$", qid or "")
+    return match.group(1) if match else "unknown"
+
+
+def _short_id(qid: str) -> str:
+    """去掉冗长的批次前缀，卡片上展示短 id。"""
+    return qid.replace("taskspec_gpt55_long__", "").replace("taskspec_gpt55__", "")
+
+
+def _status_of(entries: list[tuple[str, dict]]) -> str:
+    """validator 语义四态：存在 high 级问题即 fail；medium 或低置信度降级。"""
+    severity_counts = Counter()
+    needs_review = 0
+    for _, data in entries:
+        for deduction in data.get("deductions", []):
+            severity_counts[str(deduction.get("severity", ""))] += 1
+        if float(data.get("confidence") or 0.0) < LOW_CONFIDENCE_THRESHOLD:
+            needs_review += 1
+    if severity_counts.get("high", 0) > 0:
+        return "fail"
+    if severity_counts.get("medium", 0) > 0 or needs_review:
+        return "needs_review" if needs_review else "pass_with_warnings"
+    return "pass"
+
+
+def _histogram_html(overalls: list[float]) -> str:
+    """分数分布直方图（90+ / 80-90 / 75-80 / 70-75 / 60-70 / <60）。"""
+    counts = []
+    for low, high, _label in HISTO_BINS:
+        counts.append(sum(1 for score in overalls if low <= score < high))
+    peak = max(counts, default=0)
+    bars = "".join(
+        f'<div class="bar" style="height:{max(2, round(42 * count / peak)) if peak else 2}px" title="{count} 个"></div>'
+        for count in counts
+    )
+    labels = "".join(f"<span>{label}</span>" for _low, _high, label in HISTO_BINS)
+    return f'<div class="histo">{bars}</div><div class="histo-labels">{labels}</div>'
+
+
 GALLERY_HTML = """<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>纯规则美学评分 · 汇总画廊</title>
+<title>__TITLE__ · 汇总画廊</title>
 <style>
   :root { color-scheme: light; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
   * { box-sizing: border-box; }
@@ -148,120 +198,224 @@ GALLERY_HTML = """<!doctype html>
   main { max-width: 1280px; margin: 0 auto; padding: 24px 28px 40px; }
   h1 { margin: 0; font-size: 22px; }
   .sub { margin: 6px 0 0; color: #57606a; font-size: 13px; }
+  .status { display: inline-block; margin-left: 10px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; vertical-align: 3px; }
+  .status-fail { background: #fde8e8; color: #c81e1e; }
+  .status-pass_with_warnings { background: #fdf3e1; color: #b45309; }
+  .status-needs_review { background: #e0ecff; color: #1d4ed8; }
+  .status-pass { background: #e6f4ea; color: #057647; }
   .stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 6px; }
   .stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 18px; min-width: 110px; }
   .stat strong { display: block; font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .stat span { color: #57606a; font-size: 12px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
+  .histo { display: flex; align-items: flex-end; gap: 4px; height: 46px; padding: 8px 12px 4px; }
+  .histo .bar { flex: 1; background: #93c5fd; border-radius: 3px 3px 0 0; min-height: 2px; }
+  .histo-labels { display: flex; gap: 4px; padding: 0 12px 8px; }
+  .histo-labels span { flex: 1; text-align: center; font-size: 10px; color: #8b949e; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 18px; padding: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; position: sticky; top: 0; z-index: 5; }
+  .controls input[type="search"] { padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 8px; font-size: 13px; width: 210px; }
+  .controls select { padding: 7px 8px; border: 1px solid #d0d7de; border-radius: 8px; font-size: 13px; background: #fff; }
+  .grade-btns { display: inline-flex; gap: 4px; }
+  .grade-btns button { border: 1px solid #d0d7de; background: #fff; border-radius: 7px; padding: 6px 10px; font-size: 12.5px; cursor: pointer; color: #374151; }
+  .grade-btns button.on { background: #1f2328; color: #fff; border-color: #1f2328; }
+  .count-note { margin-left: auto; color: #57606a; font-size: 12.5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px; }
   .card { display: block; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; text-decoration: none; color: inherit; transition: box-shadow .12s, transform .12s; }
   .card:hover { box-shadow: 0 4px 16px rgba(31,35,40,.12); transform: translateY(-1px); }
-  .thumb { position: relative; height: 180px; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #edf0f2; }
-  .thumb img { max-width: 100%; max-height: 180px; object-fit: contain; }
+  .thumb { position: relative; height: 168px; background: #fff; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #edf0f2; }
+  .thumb img { max-width: 100%; max-height: 168px; object-fit: contain; }
   .cap-flag { position: absolute; top: 8px; right: 8px; background: #b45309; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 999px; }
   .body { padding: 10px 12px 12px; }
   .sid { font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: #57606a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .score-row { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
   .score { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .grade { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: #eef1f4; color: #57606a; }
-  .dims { margin-top: 6px; font-size: 11px; color: #57606a; line-height: 1.6; }
+  .grade { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+  .g-S, .g-A { background: #e6f4ea; color: #057647; }
+  .g-Bp { background: #e0ecff; color: #1d4ed8; }
+  .g-B { background: #eef1f4; color: #57606a; }
+  .g-C { background: #fdf3e1; color: #b45309; }
+  .g-D { background: #fde8e8; color: #c81e1e; }
+  .scene { margin-left: auto; font-size: 10px; color: #8b949e; }
   .issues { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; min-height: 20px; }
   .issue { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb; }
   .issue.err { background: #fde8e8; color: #c81e1e; border-color: #f6d5d5; }
   .detail { display: inline-block; margin-top: 8px; font-size: 12px; color: #2563eb; }
+  .empty { padding: 60px 0; text-align: center; color: #8b949e; display: none; }
   footer { margin-top: 26px; color: #8b949e; font-size: 12px; line-height: 1.7; }
 </style>
 </head>
 <body>
 <main>
-  <h1>纯规则美学评分 · 汇总画廊</h1>
-  <p class="sub">__COUNT__ 张样本 · 本地规则评分（geometry / visual / information / layout / consistency，含封顶机制）· 生成于 __NOW__ · 点击卡片进入单样本详情报告</p>
+  <h1>__TITLE__ · 汇总画廊<span class="status status-__STATUS__">__STATUS__</span></h1>
+  <p class="sub">__SUB__</p>
   <div class="stats">
     <div class="stat"><strong>__COUNT__</strong><span>样本</span></div>
     <div class="stat"><strong>__MEAN__</strong><span>均分</span></div>
     <div class="stat"><strong>__MEDIAN__</strong><span>中位分</span></div>
-    <div class="stat"><strong>__MINMAX__</strong><span>最低 / 最高</span></div>
     <div class="stat"><strong>__CAPPED__</strong><span>触发封顶</span></div>
-    <div class="stat"><strong>__GRADES__</strong><span>等级分布</span></div>
+    <div class="stat"><strong>__LOWCONF__</strong><span>低置信度 &lt;0.8</span></div>
+    <div class="stat" style="min-width:230px">
+      <span>分数分布（90+ / 80-90 / 75-80 / 70-75 / 60-70 / &lt;60）</span>
+      __HISTO__
+    </div>
   </div>
-  <div class="grid">
-__CARDS__
+  <div class="controls">
+    <input type="search" id="q" placeholder="搜索样本 ID / 场景…">
+    <span class="grade-btns" id="gradeBtns"></span>
+    <select id="issueSel"><option value="">全部问题类型</option></select>
+    <select id="sortSel">
+      <option value="asc">分数 ↑（最差在前）</option>
+      <option value="desc">分数 ↓</option>
+      <option value="conf">置信度 ↑</option>
+      <option value="scene">按场景</option>
+    </select>
+    <span class="count-note" id="countNote"></span>
   </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">没有匹配的样本</div>
   <footer>
     数据：<code>model_scores.jsonl</code> 与各样本 <code>{qid}/result.json</code> ·
     引擎：内置 <code>Aesthetic_Rule_Check</code> 纯规则评分，不调用外部模型。<br>
+    status 语义：<code>fail</code> = 存在 ERROR（high）级问题；<code>needs_review</code> = 无 high 但存在低置信度（&lt;0.8）样本；
+    <code>pass_with_warnings</code> = 无 high 但存在 medium 级问题。<br>
     规则未命中 ≠ 视觉验收通过；未命中只表示当前规则没有发现可证明的问题。
   </footer>
 </main>
+<script>
+const SAMPLES = __SAMPLES__;
+const GRADES = __GRADE_LIST__;
+const grid = document.getElementById('grid');
+const emptyEl = document.getElementById('empty');
+const countNote = document.getElementById('countNote');
+const state = { q: '', grade: '', issue: '', sort: 'asc' };
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function gradeCls(g) { return g === 'B+' ? 'g-Bp' : 'g-' + g[0]; }
+
+function cardHtml(s) {
+  const issues = s.issues.slice(0, 2).map(([label, sev]) =>
+    `<span class="issue${sev === 'high' ? ' err' : ''}">${esc(label)}</span>`).join('')
+    + (s.issues.length > 2 ? `<span class="issue">+${s.issues.length - 2}</span>` : '');
+  return `<a class="card" href="${esc(s.report)}" title="${esc(s.sid)}">
+    <div class="thumb"><img loading="lazy" src="${esc(s.img)}" alt="${esc(s.id)}">${s.caps ? `<span class="cap-flag">封顶×${s.caps}</span>` : ''}</div>
+    <div class="body">
+      <div class="sid">${esc(s.id)}</div>
+      <div class="score-row"><span class="score">${s.score.toFixed(1)}</span><span class="grade ${gradeCls(s.grade)}">${esc(s.grade)}</span><span class="scene">${esc(s.scene)}</span></div>
+      <div class="issues">${issues}</div>
+      <span class="detail">查看详情 →</span>
+    </div></a>`;
+}
+
+function apply() {
+  let list = SAMPLES.filter(s =>
+    (!state.q || s.sid.toLowerCase().includes(state.q) || s.scene.includes(state.q)) &&
+    (!state.grade || s.grade === state.grade) &&
+    (!state.issue || s.issues.some(([, , code]) => code === state.issue)));
+  const key = {
+    asc: (a, b) => a.score - b.score,
+    desc: (a, b) => b.score - a.score,
+    conf: (a, b) => a.conf - b.conf,
+    scene: (a, b) => a.scene.localeCompare(b.scene) || a.score - b.score,
+  }[state.sort];
+  list = list.sort(key);
+  grid.innerHTML = list.map(cardHtml).join('');
+  emptyEl.style.display = list.length ? 'none' : 'block';
+  countNote.textContent = `${list.length} / ${SAMPLES.length} 张`;
+}
+
+const gradeSet = ['', ...GRADES];
+const btns = document.getElementById('gradeBtns');
+gradeSet.forEach(g => {
+  const b = document.createElement('button');
+  b.textContent = g === '' ? '全部' : g;
+  if (g === '') b.classList.add('on');
+  b.onclick = () => { state.grade = g; btns.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); apply(); };
+  btns.appendChild(b);
+});
+
+const issueSel = document.getElementById('issueSel');
+const issueCounts = {};
+SAMPLES.forEach(s => s.issues.forEach(([label, , code]) => { issueCounts[code] = [label, (issueCounts[code]?.[1] || 0) + 1]; }));
+Object.entries(issueCounts).sort((a, b) => b[1][1] - a[1][1]).forEach(([code, [label, n]]) => {
+  const o = document.createElement('option');
+  o.value = code; o.textContent = `${label}（${n}）`;
+  issueSel.appendChild(o);
+});
+
+document.getElementById('q').oninput = e => { state.q = e.target.value.trim().toLowerCase(); apply(); };
+issueSel.onchange = e => { state.issue = e.target.value; apply(); };
+document.getElementById('sortSel').onchange = e => { state.sort = e.target.value; apply(); };
+apply();
+</script>
 </body>
 </html>
 """
 
-CARD_HTML = """    <a class="card" href="__HREF__" title="__QID__">
-      <div class="thumb"><img loading="lazy" src="__IMG__" alt="__QID__">__CAPFLAG__</div>
-      <div class="body">
-        <div class="sid">__QID__</div>
-        <div class="score-row"><span class="score">__SCORE__</span><span class="grade">__GRADE__</span></div>
-        <div class="dims">__DIMS__</div>
-        <div class="issues">__ISSUES__</div>
-        <span class="detail">查看详情 →</span>
-      </div>
-    </a>"""
-
 
 def _render_gallery_html(config: AutomationConfig, entries: list[tuple[str, dict]]) -> str:
-    """渲染单文件画廊：每个样本一张卡片，缩略图内嵌，链接用相对路径。"""
-    cards: list[str] = []
-    for qid, data in sorted(entries, key=lambda item: item[1].get("overall", 0.0)):
+    """渲染 JS 数据驱动的单文件画廊：SAMPLES 数组注入，前端负责筛选/排序。"""
+    samples: list[dict] = []
+    for qid, data in entries:
         image_path = config.card_output_dir / f"{qid}.png"
         if not image_path.exists():
             image_path = Path(data.get("image_path", ""))
         img_url = _embed_image_data_url(image_path) if image_path.exists() else ""
 
-        caps = data.get("hard_caps", [])
-        cap_flag = f'<span class="cap-flag">封顶×{len(caps)}</span>' if caps else ""
-
-        dims = " · ".join(
-            f"{html.escape(dim.get('label') or dim['name'])} {dim.get('score', 0):.0f}"
-            for dim in data.get("dimensions", [])
-            if dim.get("name")
-        )
-
         deductions = sorted(
             data.get("deductions", []),
             key=lambda d: (SEVERITY_RANK.get(d.get("severity", ""), 3), d.get("score_delta", 0.0)),
         )
-        issue_tags = "".join(
-            f'<span class="issue{" err" if d.get("severity") == "high" else ""}">'
-            f'{html.escape(DEDUCTION_LABELS.get(d.get("code"), str(d.get("code"))))}</span>'
-            for d in deductions[:3]
-        )
-        if len(deductions) > 3:
-            issue_tags += f'<span class="issue">+{len(deductions) - 3}</span>'
+        issues = [
+            [DEDUCTION_LABELS.get(str(d.get("code")), str(d.get("code"))), str(d.get("severity", "")), str(d.get("code"))]
+            for d in deductions
+            if d.get("code")
+        ]
+        samples.append({
+            "id": _short_id(qid),
+            "sid": qid,
+            "score": float(data.get("overall", 0.0)),
+            "grade": str(data.get("grade", "-")),
+            "scene": _scene_of(qid),
+            "caps": len(data.get("hard_caps", [])),
+            "conf": float(data.get("confidence") or 0.0),
+            "img": img_url,
+            "report": f"{qid}/report.html",
+            "issues": issues,
+        })
 
-        card = (
-            CARD_HTML.replace("__HREF__", html.escape(f"{qid}/report.html"))
-            .replace("__QID__", html.escape(qid))
-            .replace("__IMG__", img_url)
-            .replace("__CAPFLAG__", cap_flag)
-            .replace("__SCORE__", f"{data.get('overall', 0.0):.1f}")
-            .replace("__GRADE__", html.escape(str(data.get("grade", "-"))))
-            .replace("__DIMS__", dims)
-            .replace("__ISSUES__", issue_tags or '<span class="issue">无扣分项</span>')
-        )
-        cards.append(card)
+    overalls = sorted(s["score"] for s in samples)
+    capped = sum(1 for s in samples if s["caps"])
+    low_conf = sum(1 for s in samples if s["conf"] < LOW_CONFIDENCE_THRESHOLD)
+    status = _status_of(entries)
 
-    overalls = [data.get("overall", 0.0) for _, data in entries]
-    grades = Counter(str(data.get("grade", "-")) for _, data in entries)
-    grade_text = " / ".join(f"{g}×{n}" for g, n in sorted(grades.items()))
-    capped = sum(1 for _, data in entries if data.get("hard_caps"))
+    grade_set = {s["grade"] for s in samples}
+    grade_list = [g for g in GRADE_ORDER if g in grade_set] + sorted(grade_set - set(GRADE_ORDER))
+
+    # 维度权重摘要，如 "geometry 35 / visual 35 / information 15 / layout 10 / consistency 5"
+    weights = ""
+    for _, data in entries:
+        dims = [d for d in data.get("dimensions", []) if d.get("name")]
+        if dims:
+            weights = " / ".join(f"{d['name']} {float(d.get('weight', 0.0)):.0f}" for d in dims)
+            break
+
+    sub = (
+        f"{len(samples)} 张样本 · 本地规则评分（{weights or 'geometry / visual / information / layout / consistency'}，含封顶机制）· "
+        f"生成于 {datetime.now().strftime('%Y-%m-%d %H:%M')} · 点击卡片进入单样本详情报告"
+    )
+
+    samples_json = json.dumps(samples, ensure_ascii=False).replace("</", "<\\/")
 
     return (
-        GALLERY_HTML.replace("__COUNT__", str(len(entries)))
-        .replace("__NOW__", datetime.now().strftime("%Y-%m-%d %H:%M"))
+        GALLERY_HTML.replace("__TITLE__", "纯规则美学评分")
+        .replace("__STATUS__", status)
+        .replace("__SUB__", html.escape(sub))
+        .replace("__COUNT__", str(len(samples)))
         .replace("__MEAN__", f"{statistics.mean(overalls):.2f}")
         .replace("__MEDIAN__", f"{statistics.median(overalls):.2f}")
-        .replace("__MINMAX__", f"{min(overalls):.1f} / {max(overalls):.1f}")
-        .replace("__CAPPED__", f"{capped}/{len(entries)}")
-        .replace("__GRADES__", html.escape(grade_text))
-        .replace("__CARDS__", "\n".join(cards))
+        .replace("__CAPPED__", f"{capped}/{len(samples)}")
+        .replace("__LOWCONF__", str(low_conf))
+        .replace("__HISTO__", _histogram_html(overalls))
+        .replace("__SAMPLES__", samples_json)
+        .replace("__GRADE_LIST__", json.dumps(grade_list, ensure_ascii=False))
     )
