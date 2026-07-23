@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import time
@@ -57,7 +57,8 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            if tree.is_chat_ready() and (not busy or stable_count >= 2):
+            # 必须同时满足：无生成中关键词 且 回复文本连续稳定，避免单轮轮询误判放行
+            if tree.is_chat_ready() and not busy and stable_count >= 2:
                 self._log.info("wait_ready done: busy=%s stable_count=%d reply_len=%d", busy, stable_count, reply_len)
                 return
             time.sleep(self.config.poll_interval)
@@ -199,7 +200,8 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            if not busy or stable_count >= 2:
+            # 必须同时满足：无生成中关键词 且 回复文本连续稳定，避免回复流式生成期间提前放行
+            if not busy and stable_count >= 2:
                 self._log.info(
                     "[%s] stage=REPLY_STABLE busy=%s stable_count=%d reply_len=%d",
                     qid,
@@ -272,7 +274,7 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            should_extract = has_dsl and (not busy or stable_count >= 2)
+            should_extract = has_dsl and not busy and stable_count >= 2
             if should_extract:
                 extraction = self.extractor.extract_from_tree(qid, tree)
                 if self._is_complete_new_extraction(extraction):
