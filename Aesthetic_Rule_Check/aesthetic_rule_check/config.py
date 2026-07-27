@@ -44,6 +44,18 @@ class Config:
         section = self.metrics.get(name, {})
         return section if isinstance(section, dict) else {}
 
+    def calibration(self) -> dict[str, Any] | None:
+        """规则分偏差标定参数（P0-3）。score.yaml 无 calibration 节时返回 None（向后兼容）。"""
+        section = self.score.get("calibration")
+        if not isinstance(section, dict):
+            return None
+        try:
+            a = float(section.get("a", 1.0))
+            b = float(section.get("b", 0.0))
+        except (TypeError, ValueError):
+            return None
+        return {"method": str(section.get("method", "linear")), "a": a, "b": b}
+
     def grade_for(self, score: float) -> str:
         grades = self.score.get("grades", {})
         ordered = sorted(((str(k), float(v)) for k, v in grades.items()), key=lambda item: item[1], reverse=True)

@@ -141,6 +141,9 @@ class EvaluationResult:
     overall: float
     # 封顶前的原始加权总分（保留 2 位小数）；overall = min(raw_overall, final_min_cap)。
     raw_overall: float
+    # 偏差标定后的最终分（P0-3）：calibrated_overall = clamp(a * overall + b, 0, 100)，
+    # 取整到 0.5；未配置标定时等于 overall。等级按本字段映射。
+    calibrated_overall: float
     grade: str
     confidence: float
     dimensions: list[DimensionResult]

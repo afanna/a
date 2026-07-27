@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -199,6 +199,7 @@ def make_config(
         "post_query_wait": value("post_query_wait", 30),
         "query_attempt_timeout": value("query_attempt_timeout", 90),
         "query_max_attempts": value("query_max_attempts", 3),
+        "batch_retry_rounds": value("batch_retry_rounds", 5),
         "dsl_source": value("dsl_source", "obs"),
         "obs_hilog_timeout": value("obs_hilog_timeout", 400),
         "obs_download_timeout": value("obs_download_timeout", 15),

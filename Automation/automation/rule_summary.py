@@ -79,6 +79,7 @@ def _score_row(qid: str, data: dict) -> dict:
         "qid": qid,
         "overall": data.get("overall"),
         "raw_overall": data.get("raw_overall"),
+        "calibrated_overall": data.get("calibrated_overall"),
         "grade": data.get("grade"),
         "dimensions": dimensions,
         "top_deductions": _top_deduction_codes(data.get("deductions", [])),
@@ -373,7 +374,8 @@ def _render_gallery_html(config: AutomationConfig, entries: list[tuple[str, dict
         samples.append({
             "id": _short_id(qid),
             "sid": qid,
-            "score": float(data.get("overall", 0.0)),
+            # 展示分与 grade 口径一致：优先 calibrated_overall（P0-3 标定后最终分），回退 overall
+            "score": float(data.get("calibrated_overall") or data.get("overall") or 0.0),
             "grade": str(data.get("grade", "-")),
             "scene": _scene_of(qid),
             "caps": len(data.get("hard_caps", [])),

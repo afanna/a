@@ -103,6 +103,18 @@ def warnings_for(context: MetricContext, metrics: list[MetricResult], config: Co
     return warnings
 
 
+def calibrate_overall(overall: float, config: Config) -> float:
+    """P0-3 偏差标定：calibrated = clamp(a * overall + b, 0, 100)，取整到 0.5。
+
+    score.yaml 无 calibration 节时原样返回（向后兼容）。
+    """
+    params = config.calibration()
+    if params is None:
+        return overall
+    calibrated = clamp(params["a"] * overall + params["b"], 0.0, 100.0)
+    return round(calibrated * 2) / 2.0
+
+
 def build_result(context: MetricContext, metrics: list[MetricResult], config: Config) -> EvaluationResult:
     dimensions = build_dimensions(metrics, config)
     raw_overall = overall_score(dimensions)
@@ -119,13 +131,15 @@ def build_result(context: MetricContext, metrics: list[MetricResult], config: Co
     stacking = min(2 * (len(cap_codes) - 1), 6) if cap_codes else 0
     final_min_cap = cap - stacking
     overall = round(clamp(min(raw_overall, final_min_cap)), 2)
+    calibrated_overall = calibrate_overall(overall, config)
     return EvaluationResult(
         image_path=context.vision.image_path,
         dsl_path=context.dsl.path,
         query=context.query,
         overall=overall,
         raw_overall=raw_overall,
-        grade=config.grade_for(overall),
+        calibrated_overall=calibrated_overall,
+        grade=config.grade_for(calibrated_overall),
         confidence=overall_confidence(metrics),
         dimensions=dimensions,
         metrics=metrics,

@@ -51,7 +51,12 @@
     "query_attempt_timeout": 90,
 
     // 单条 query 最多重试次数；失败后 batch 会跳过该 query 继续后续用例。
+    // 注：batch/parallel 模式下每条 query 每轮只发送一次，重试由批次补发轮次承担。
     "query_max_attempts": 3,
+
+    // 批次补发轮次：一轮结束后按 dsl/ 产物检查缺口，对仍缺 DSL 的 query 各补发一次，
+    // 直到全部补齐或达到该上限；全部补齐后才进入渲染和规则评分流程。
+    "batch_retry_rounds": 5,
 
     // DSL 获取来源：obs 表示从 hilog 中的 OBS 链接下载；ui 表示旧的 UI 树提取；auto 表示 OBS 失败后尝试 UI 树兜底。
     "dsl_source": "obs",

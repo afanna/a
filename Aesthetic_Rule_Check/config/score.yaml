@@ -41,6 +41,18 @@ dimensions:
     weight: 5
     label: "设计一致性"
 
+# 规则分偏差标定（P0-3，2026-07 标定）。
+# 来源：calibration/fit_bias_calibration.py 在 p0_verification_after2（fit50）上最小二乘拟合、
+# 在 p0_verification_holdout50（holdout50）上验证（holdout MAE 9.22 -> 8.70，Pearson/Spearman 不变）。
+# 拟合目标为 VLM 教师分（codex_random100_vlm_iteration_v5），用于修正规则分的系统性偏差。
+# 应用方式：calibrated_overall = clamp(a * overall + b, 0, 100)，取整到 0.5；等级按 calibrated_overall 映射。
+# overall / raw_overall 保持不动（原始规则分留档）。
+# 删除本节则 calibrated_overall = overall（向后兼容）。
+calibration:
+  method: linear
+  a: 0.830716
+  b: 11.831671
+
 # 等级阈值，只影响报告展示，不影响分数计算。
 # 例如 overall >= 90 展示 A+；overall >= 70 展示 B。
 grades:

@@ -75,26 +75,45 @@ class AutomationPipeline:
         return render_results
 
     def collect_dsls(self, queries_path: Path | None = None, *, log_summary: bool = True) -> list[QueryResult]:
-        """Send all queries and save DSL files without rendering."""
+        """Send all queries and save DSL files without rendering.
+
+        批次轮次补发：每条 query 每轮只发送一次，失败记录日志并跳过；
+        一轮结束后按 dsl/ 产物文件核对缺口，自动进入下一轮只补发缺失的 query，
+        直到全部补齐或达到 batch_retry_rounds 上限，之后流程才继续渲染和评分。
+        """
         t0 = time.monotonic()
         cases = load_queries(queries_path or self.config.queries_path)
         query_results: list[QueryResult] = []
-        failed = 0
-        for case in cases:
-            try:
-                query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query))
-            except (TimeoutError, HdcError) as exc:
-                failed += 1
-                self._log.error("DSL failed: qid=%s error=%s", case.qid, exc)
-                self._capture_failure_hilog(case.qid)
-                continue
+        max_rounds = 1 + max(0, int(self.config.batch_retry_rounds))
+        round_no = 0
+        pending = list(cases)
+
+        while pending and round_no < max_rounds:
+            round_no += 1
+            if round_no > 1:
+                self._log.info("DSL RETRY ROUND %d/%d: pending=%d", round_no, max_rounds, len(pending))
+            for case in pending:
+                try:
+                    query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query, max_attempts=1))
+                except (TimeoutError, HdcError) as exc:
+                    self._log.error("DSL failed: qid=%s round=%d error=%s", case.qid, round_no, exc)
+                    self._capture_failure_hilog(case.qid)
+                    continue
+            # 以 DSL 产物文件为准核对缺口，只有文件落盘的 query 才算完成
+            pending = [case for case in cases if not self.config.dsl_path_for(case.qid).is_file()]
+
+        failed = len(pending)
+        if pending:
+            missing_qids = ", ".join(case.qid for case in pending)
+            self._log.error("DSL INCOMPLETE after %d rounds: missing=%d qids=%s", max_rounds, failed, missing_qids)
 
         if log_summary:
             self._log.info(
-                "DSL SUMMARY: total=%d ok=%d failed=%d total_time=%.1fs",
+                "DSL SUMMARY: total=%d ok=%d failed=%d rounds=%d total_time=%.1fs",
                 len(cases),
                 len(query_results),
                 failed,
+                round_no,
                 time.monotonic() - t0,
             )
         return query_results

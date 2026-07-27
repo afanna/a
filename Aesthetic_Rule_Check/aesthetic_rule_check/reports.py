@@ -58,6 +58,7 @@ def render_html(result: EvaluationResult) -> str:
     .summary {{ display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }}
     .score {{ background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px; }}
     .score strong {{ display: block; font-size: 44px; line-height: 1; }}
+    .score .subscores {{ margin: 8px 0 0; color: #57606a; font-size: 12px; line-height: 1.6; }}
     .image {{ background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }}
     .image img {{ max-width: 100%; height: auto; display: block; margin: 0 auto; }}
     .grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }}
@@ -83,8 +84,9 @@ def render_html(result: EvaluationResult) -> str:
   <div class="summary">
     <section class="score">
       <h2>总分</h2>
-      <strong>{result.overall:.2f}</strong>
+      <strong>{result.calibrated_overall:.2f}</strong>
       <p>等级：{html.escape(result.grade)}</p>
+      <p class="subscores">规则分 overall：{result.overall:.2f} · 裸分 raw_overall：{result.raw_overall:.2f}<br>总分已按教师分做线性偏差标定（P0-3）。</p>
       {hard_caps}
     </section>
     <section class="image">

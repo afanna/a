@@ -83,10 +83,11 @@ class XiaoyiClient:
     def click_send(self, send_xy: tuple[int, int]) -> None:
         self.hdc.ui_input("click", *send_xy)
 
-    def collect_dsl_for_query(self, qid: str, query: str) -> QueryResult:
+    def collect_dsl_for_query(self, qid: str, query: str, *, max_attempts: int | None = None) -> QueryResult:
         t0 = time.monotonic()
         last_error: Exception | None = None
-        for attempt in range(1, self.config.query_max_attempts + 1):
+        attempts = max(1, int(max_attempts or self.config.query_max_attempts))
+        for attempt in range(1, attempts + 1):
             try:
                 self.wait_ready()
                 extraction = self._send_query_and_collect_dsl(qid, query)
@@ -99,9 +100,9 @@ class XiaoyiClient:
             except (TimeoutError, HdcError) as exc:
                 last_error = exc
                 self._log.error("[%s] stage=DSL_ATTEMPT_FAILED attempt=%d error=%s", qid, attempt, exc)
-                if attempt < self.config.query_max_attempts:
+                if attempt < attempts:
                     continue
-        raise TimeoutError(f"DSL not found for query {qid} after {self.config.query_max_attempts} attempts") from last_error
+        raise TimeoutError(f"DSL not found for query {qid} after {attempts} attempts") from last_error
 
     def _send_query_and_collect_dsl(self, qid: str, query: str) -> DslExtraction:
         source = self.config.dsl_source

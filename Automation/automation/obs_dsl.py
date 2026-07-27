@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import queue
 import re
 import subprocess
@@ -9,6 +10,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 from .config import AutomationConfig, safe_path_name
 from .dsl import DslExtraction, dedupe_records, extract_fenced_blocks, is_complete_dsl, repair_and_extract
@@ -16,10 +18,41 @@ from .hdc import HdcClient, HdcError, format_command_failure
 from .logger import get_logger
 
 
-GEN_WIDGET_RESULT_RE = re.compile(r"genWidgetResult\s+result:(\S+)")
-OBS_MD_URL_RE = re.compile(r"https?://[^\s]+\.myhuaweicloud\.com[^\s]+\.md[^\s\]\[\(\)\{\}<>'\",;]*")
+RESULT_FIELD_URL_RE = re.compile(r'"result"\s*:\s*"(?P<url>https?://(?:\\.|[^"\\])*)"', re.I)
+GEN_WIDGET_RESULT_RE = re.compile(
+    r'genWidgetResult\s+result:\s*(?:"(?P<quoted>https?://(?:\\.|[^"\\])*)"|(?P<bare>https?://\S+))',
+    re.I,
+)
+OBS_MD_URL_RE = re.compile(r"https?://[^\s\"<>]+?\.myhuaweicloud\.com[^\s\"<>]*?\.md(?:\?[^\s\"<>]*)?", re.I)
 # hilog 日志可能在 URL 后紧跟包裹符号，提取后统一剥离
 _URL_TRAILING_STRIP = ")]}>,;'\"\\"
+# OBS 签名链接必须以完整的 64 位十六进制签名结尾，否则视为 hilog 行过长被截断
+OBS_SIGNATURE_RE = re.compile(r"X-Amz-Signature=[0-9a-fA-F]{64}$")
+# 跨 query 持久化的已见 URL 文件，命中即视为残存旧链接拒绝下载
+SEEN_URLS_FILENAME = "seen_urls.txt"
+_SEEN_URLS_MAX_LINES = 10000
+_SEEN_URLS_KEEP_LINES = 5000
+
+
+def is_complete_obs_url(url: str) -> bool:
+    """带签名参数的 OBS 链接必须包含完整签名；截断链接下载必然 403，应跳过等待完整输出。"""
+    if "X-Amz-" not in url:
+        return True
+    return bool(OBS_SIGNATURE_RE.search(url))
+
+
+def is_obs_markdown_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    if not parsed.netloc.endswith(".myhuaweicloud.com"):
+        return False
+    if not parsed.path.endswith(".md"):
+        return False
+    return is_complete_obs_url(url)
 
 
 @dataclass(frozen=True)
@@ -45,6 +78,36 @@ class ObsDslCollector:
         self.config = config
         self.hdc = hdc
         self._log = get_logger("obs_dsl", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
+        # 跨 query 共享的已见 URL 集合，懒加载自 seen_urls.txt
+        self._seen_urls: set[str] | None = None
+
+    def _seen_urls_path(self) -> Path:
+        # 跟随 obs_hilog 目录；多设备并行时自动按 SN 隔离，无跨进程竞争
+        return self.config.obs_hilog_match_dir / SEEN_URLS_FILENAME
+
+    def _load_seen_urls(self) -> set[str]:
+        if self._seen_urls is not None:
+            return self._seen_urls
+        path = self._seen_urls_path()
+        urls: set[str] = set()
+        if path.is_file():
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if len(lines) > _SEEN_URLS_MAX_LINES:
+                lines = lines[-_SEEN_URLS_KEEP_LINES:]
+                path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            urls = {line.strip() for line in lines if line.strip()}
+        self._seen_urls = urls
+        return urls
+
+    def _record_seen_url(self, url: str) -> None:
+        seen = self._load_seen_urls()
+        if url in seen:
+            return
+        seen.add(url)
+        path = self._seen_urls_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(url + "\n")
 
     def collect_after_query_sent(
         self,
@@ -96,7 +159,6 @@ class ObsDslCollector:
         timeout = max(0.1, float(self.config.obs_hilog_timeout))
         deadline = stream.started + timeout
         accept_extraction = accept_extraction or (lambda _extraction: True)
-        seen_urls: set[str] = set()
 
         try:
             while time.monotonic() <= deadline:
@@ -114,10 +176,15 @@ class ObsDslCollector:
 
                 url = extract_obs_url(line)
                 if url:
-                    if url in seen_urls:
-                        self._log.debug("[%s] stage=OBS_URL_DUPLICATE url=%s", qid, url)
+                    if not is_complete_obs_url(url):
+                        # 链接被 hilog 截断，下载必然 403；不记入已见文件，等待完整输出
+                        self._log.info("[%s] stage=OBS_URL_TRUNCATED url_tail=%s", qid, url[-80:])
                         continue
-                    seen_urls.add(url)
+                    if url in self._load_seen_urls():
+                        # 跨 query 命中历史链接，视为残存旧链接，拒绝下载
+                        self._log.info("[%s] stage=OBS_URL_DUPLICATE url=%s", qid, url)
+                        continue
+                    self._record_seen_url(url)
                     match_path = self._save_hilog_match(qid, line, stream.recent_lines)
                     url_path = self._save_obs_url(qid, url)
                     markdown = self._download_markdown(url)
@@ -228,19 +295,39 @@ def stop_process(process: subprocess.Popen[str]) -> None:
 
 
 def extract_obs_url(line: str) -> str | None:
-    result_match = GEN_WIDGET_RESULT_RE.search(line)
-    if result_match:
-        candidate = result_match.group(1)
-        url_match = OBS_MD_URL_RE.search(candidate)
-        if url_match:
-            return _clean_url(url_match.group(0))
-        if candidate.startswith(("http://", "https://")):
-            return _clean_url(candidate)
+    for match in RESULT_FIELD_URL_RE.finditer(line):
+        url = normalize_obs_url(match.group("url"))
+        if url:
+            return url
 
-    url_match = OBS_MD_URL_RE.search(line)
-    if url_match:
-        return _clean_url(url_match.group(0))
+    for match in GEN_WIDGET_RESULT_RE.finditer(line):
+        candidate = match.group("quoted") or match.group("bare")
+        url = normalize_obs_url(candidate)
+        if url:
+            return url
+
+    for match in OBS_MD_URL_RE.finditer(line):
+        url = normalize_obs_url(match.group(0))
+        if url:
+            return url
     return None
+
+
+def normalize_obs_url(candidate: str) -> str | None:
+    url = _clean_url(unescape_log_url(candidate))
+    if is_obs_markdown_url(url):
+        return url
+    return None
+
+
+def unescape_log_url(value: str) -> str:
+    if "\\" not in value:
+        return value
+    try:
+        decoded = json.loads(f'"{value}"')
+    except json.JSONDecodeError:
+        return value.replace("\\/", "/")
+    return decoded
 
 
 def _clean_url(url: str) -> str:

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +16,8 @@ class AutomationConfig:
     post_query_wait: float = 30
     query_attempt_timeout: float = 90
     query_max_attempts: int = 3
+    # 批次补发轮次：每轮对仍缺 DSL 的 query 各补发一次，直到全部补齐或达到上限
+    batch_retry_rounds: int = 5
     dsl_source: str = "obs"
     obs_hilog_timeout: float = 400
     obs_download_timeout: float = 15
