@@ -45,6 +45,8 @@ class HdcClient:
                 check=False,
                 env=self.env,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=self.default_timeout if timeout is None else timeout,
             )
         except FileNotFoundError as exc:
@@ -95,7 +97,7 @@ class HdcClient:
         raise HdcError(f"Failed to dump UI layout after {retries} attempts") from last_error
 
     def ui_input(self, action: str, *args: object, check: bool = True) -> CommandResult:
-        return self.shell("uitest", "uiInput", action, *args, timeout=10, check=check)
+        return self.shell("uitest", "uiInput", action, *format_ui_input_args(action, args), timeout=10, check=check)
 
     def snapshot_display(
         self,
@@ -153,6 +155,19 @@ def parse_targets(output: str) -> list[str]:
         if sn and sn not in targets:
             targets.append(sn)
     return targets
+
+
+def format_ui_input_args(action: str, args: Sequence[object]) -> tuple[object, ...]:
+    if action != "inputText" or not args:
+        return tuple(args)
+    *prefix, text = args
+    return (*prefix, quote_device_shell_text(str(text)))
+
+
+def quote_device_shell_text(text: str) -> str:
+    cleaned = text.replace('"', "")
+    escaped = cleaned.replace("'", "'\\''")
+    return f"'{escaped}'"
 
 
 def format_command_failure(result: CommandResult) -> str:

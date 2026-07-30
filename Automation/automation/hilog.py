@@ -39,6 +39,8 @@ class HilogCollector:
                 check=False,
                 env=self.hdc.env,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=seconds,
             )
             stdout = completed.stdout or ""

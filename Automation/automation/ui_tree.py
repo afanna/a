@@ -115,10 +115,35 @@ class UiTree:
     def is_chat_ready(self) -> bool:
         haystack = "\n".join(n.searchable.lower() for n in self.nodes)
         has_chat = "chat" in haystack or "keyboard_builder" in haystack
-        return has_chat and (self.locate_control("input") is not None or self.locate_control("keyboard_toggle") is not None)
+        return has_chat and not self.is_voice_mode() and (self.locate_control("input") is not None or self.locate_control("keyboard_toggle") is not None)
+
+    def has_text_area(self) -> bool:
+        return any(n.node_type == "TextArea" for n in self.actionable())
+
+    def has_waveform_icon(self) -> bool:
+        return any("waveform" in n.searchable.lower() for n in self.actionable())
+
+    def is_voice_mode(self) -> bool:
+        return self.has_waveform_icon() and not self.has_text_area()
+
+    def has_plus_icon(self) -> bool:
+        for node in self.actionable():
+            bounds = node.bounds
+            if not node.in_keyboard and not (bounds and bounds.bottom > 1200):
+                continue
+            haystack = node.searchable.lower()
+            node_id = node.node_id.lower()
+            if node.text.strip() == "+" or node.description.strip() == "+":
+                return True
+            if node_id in {"add", "plus"} or node_id.endswith(".add") or node_id.endswith(".plus"):
+                return True
+            if any(term in haystack for term in ("plus", "add_icon", "icon_add", "add_button")):
+                return True
+        return False
 
     def locate_control(self, mode: str) -> Candidate | None:
         candidates: list[Candidate] = []
+        has_plus_icon = self.has_plus_icon() if mode == "send" else False
         for node in self.actionable():
             node_id = node.node_id.lower()
             score = 0
@@ -140,14 +165,18 @@ class UiTree:
                     score += 80
                 if node.in_keyboard and node.clickable and node.bounds and node.bounds.left <= 250:
                     score += 40
+                if score and node.clickable:
+                    score += 5
             elif mode == "send":
                 if node_id == "send_hot_area":
                     score += 140
-                if "send" in node_id or "arrow_up" in node_id:
-                    score += 90
+                if "send" in node_id:
+                    score += 100
+                if "arrow_up" in node_id:
+                    score += 80
                 if node.text in {"发送", "Send"}:
                     score += 80
-                if node.in_keyboard and node.clickable and node.node_type == "Stack" and node.bounds and node.bounds.left >= 1000:
+                if not has_plus_icon and node.in_keyboard and node.clickable and node.node_type == "Stack" and node.bounds and node.bounds.left >= 1000:
                     score += 40
             if score:
                 candidates.append(Candidate(score, node))

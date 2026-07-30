@@ -92,9 +92,11 @@ def add_common_arguments(
     parser.add_argument("--project-root", type=Path, default=default, help=hidden)
     parser.add_argument("--hdc", default=default, help=hidden)
     parser.add_argument("--ready-timeout", type=float, default=default, help=hidden)
+    parser.add_argument("--ready-stable-count", type=int, default=default, help=hidden)
     parser.add_argument("--post-query-wait", type=float, default=default, help=hidden)
     parser.add_argument("--query-attempt-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--query-max-attempts", type=int, default=default, help=hidden)
+    parser.add_argument("--query-cooldown", type=float, default=default, help=hidden)
     parser.add_argument("--dsl-source", choices=["obs", "ui", "auto"], default=default, help=hidden)
     parser.add_argument("--obs-hilog-timeout", type=float, default=default, help=hidden)
     parser.add_argument("--obs-download-timeout", type=float, default=default, help=hidden)
@@ -196,9 +198,11 @@ def make_config(
         "sn": sn if sn is not None else value("sn", None),
         "artifact_namespace": artifact_namespace,
         "ready_timeout": value("ready_timeout", 60),
+        "ready_stable_count": value("ready_stable_count", 4),
         "post_query_wait": value("post_query_wait", 30),
         "query_attempt_timeout": value("query_attempt_timeout", 90),
         "query_max_attempts": value("query_max_attempts", 3),
+        "query_cooldown": value("query_cooldown", 5.0),
         "batch_retry_rounds": value("batch_retry_rounds", 5),
         "dsl_source": value("dsl_source", "obs"),
         "obs_hilog_timeout": value("obs_hilog_timeout", 400),

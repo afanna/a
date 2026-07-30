@@ -33,7 +33,7 @@ class XiaoyiClient:
         self.extractor = extractor or DslExtractor()
         self.obs_collector = obs_collector or ObsDslCollector(config, hdc)
         self.dump_path = config.work_dir / "current_ui_tree.json"
-        self.last_dsl_fingerprint: str | None = None
+        self._seen_dsl_fingerprints: set[str] = set()
         self._log = get_logger("xiaoyi", sn=config.safe_sn or "", log_dir=config.log_dir, debug=config.debug)
 
     def dump_tree(self) -> UiTree:
@@ -58,7 +58,7 @@ class XiaoyiClient:
                 last_len = reply_len
 
             # 必须同时满足：无生成中关键词 且 回复文本连续稳定，避免单轮轮询误判放行
-            if tree.is_chat_ready() and not busy and stable_count >= 2:
+            if tree.is_chat_ready() and not busy and stable_count >= self.config.ready_stable_count:
                 self._log.info("wait_ready done: busy=%s stable_count=%d reply_len=%d", busy, stable_count, reply_len)
                 return
             time.sleep(self.config.poll_interval)
@@ -72,6 +72,7 @@ class XiaoyiClient:
     def prepare_query(self, query: str) -> tuple[int, int]:
         input_xy = self._ensure_input()
         self._clear_input(*input_xy)
+        input_xy = self._ensure_input()
         self.hdc.ui_input("inputText", *input_xy, query)
         tree = self.dump_tree()
         send = tree.locate_control("send")
@@ -91,11 +92,12 @@ class XiaoyiClient:
             try:
                 self.wait_ready()
                 extraction = self._send_query_and_collect_dsl(qid, query)
-                self.last_dsl_fingerprint = dsl_fingerprint(extraction)
+                self._seen_dsl_fingerprints.add(dsl_fingerprint(extraction))
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
                 self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
                 self.clear_context(qid)
+                self._cool_down_after_query(qid)
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
             except (TimeoutError, HdcError) as exc:
                 last_error = exc
@@ -202,7 +204,7 @@ class XiaoyiClient:
                 last_len = reply_len
 
             # 必须同时满足：无生成中关键词 且 回复文本连续稳定，避免回复流式生成期间提前放行
-            if not busy and stable_count >= 2:
+            if not busy and stable_count >= self.config.ready_stable_count:
                 self._log.info(
                     "[%s] stage=REPLY_STABLE busy=%s stable_count=%d reply_len=%d",
                     qid,
@@ -216,25 +218,45 @@ class XiaoyiClient:
         raise TimeoutError(f"Timed out waiting for Xiaoyi reply to become stable for query {qid}")
 
     def _ensure_input(self) -> tuple[int, int]:
-        tree = self.dump_tree()
-        candidate = tree.locate_control("input")
-        if candidate:
-            return candidate.center
+        last_tree: UiTree | None = None
+        for attempt in range(1, 4):
+            tree = self.dump_tree()
+            last_tree = tree
+            candidate = tree.locate_control("input")
+            if candidate and not tree.is_voice_mode():
+                return candidate.center
+            self._log.info("_ensure_input: input not ready attempt=%d voice_mode=%s", attempt, tree.is_voice_mode())
+            time.sleep(1)
+
+        tree = last_tree or self.dump_tree()
         toggle = tree.locate_control("keyboard_toggle")
         if not toggle:
             self._log.error("_ensure_input: no input or keyboard toggle found")
             raise RuntimeError("Neither text input nor keyboard toggle was found")
-        self.hdc.ui_input("click", *toggle.center)
-        tree = self.dump_tree()
-        candidate = tree.locate_control("input")
-        if not candidate:
-            raise RuntimeError("Text input was not found after clicking keyboard toggle")
-        return candidate.center
+
+        for attempt in range(1, 3):
+            self.hdc.ui_input("click", *toggle.center)
+            time.sleep(1)
+            tree = self.dump_tree()
+            candidate = tree.locate_control("input")
+            if candidate and not tree.is_voice_mode():
+                return candidate.center
+            toggle = tree.locate_control("keyboard_toggle") or toggle
+            self._log.info("_ensure_input: input still missing after toggle attempt=%d voice_mode=%s", attempt, tree.is_voice_mode())
+
+        raise RuntimeError("Text input was not found after clicking keyboard toggle")
 
     def _clear_input(self, x: int, y: int) -> None:
         self.hdc.ui_input("click", x, y)
         self.hdc.ui_input("keyEvent", 2072, 2017, check=False)
         self.hdc.ui_input("keyEvent", 2055, check=False)
+
+    def _cool_down_after_query(self, qid: str) -> None:
+        cooldown = max(0.0, float(self.config.query_cooldown))
+        if cooldown <= 0:
+            return
+        self._log.info("[%s] stage=QUERY_COOLDOWN seconds=%.1f", qid, cooldown)
+        time.sleep(cooldown)
 
     def clear_context(self, qid: str) -> None:
         if not self.config.context_clear_enabled:
@@ -275,7 +297,7 @@ class XiaoyiClient:
                 stable_count = 0
                 last_len = reply_len
 
-            should_extract = has_dsl and not busy and stable_count >= 2
+            should_extract = has_dsl and not busy and stable_count >= self.config.ready_stable_count
             if should_extract:
                 extraction = self.extractor.extract_from_tree(qid, tree)
                 if self._is_complete_new_extraction(extraction):
@@ -310,7 +332,7 @@ class XiaoyiClient:
         if not is_complete_dsl(extraction.records):
             return False
         fingerprint = dsl_fingerprint(extraction)
-        return fingerprint != self.last_dsl_fingerprint
+        return fingerprint not in self._seen_dsl_fingerprints
 
 
 def dsl_fingerprint(extraction: DslExtraction) -> str:

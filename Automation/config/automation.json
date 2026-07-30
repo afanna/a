@@ -44,6 +44,9 @@
     // 等待小艺聊天界面可输入的最长秒数。
     "ready_timeout": 60,
 
+    // Xiaoyi ready/reply 文本长度连续稳定次数阈值。
+    "ready_stable_count": 4,
+
     // 发送 query 后先等待多少秒，再开始滚动和提取 DSL。
     "post_query_wait": 30,
 
@@ -53,6 +56,9 @@
     // 单条 query 最多重试次数；失败后 batch 会跳过该 query 继续后续用例。
     // 注：batch/parallel 模式下每条 query 每轮只发送一次，重试由批次补发轮次承担。
     "query_max_attempts": 3,
+
+    // 每条 query 成功保存 DSL 并清理上下文后的冷却等待秒数。
+    "query_cooldown": 5.0,
 
     // 批次补发轮次：一轮结束后按 dsl/ 产物检查缺口，对仍缺 DSL 的 query 各补发一次，
     // 直到全部补齐或达到该上限；全部补齐后才进入渲染和规则评分流程。

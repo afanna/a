@@ -6,6 +6,7 @@ import re
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -119,9 +120,17 @@ class ObsDslCollector:
         return self.collect_from_stream(qid, stream, accept_extraction=accept_extraction)
 
     def start_stream(self, qid: str) -> ObsHilogStream:
-        clear_result = self.hdc.shell("hilog", "-r", timeout=10, check=False)
-        if clear_result.returncode != 0:
-            self._log.warning("[%s] stage=OBS_HILOG_CLEAR_FAILED error=%s", qid, format_command_failure(clear_result))
+        for attempt in range(1, 3):
+            clear_result = self.hdc.shell("hilog", "-r", timeout=10, check=False)
+            if clear_result.returncode != 0:
+                self._log.warning(
+                    "[%s] stage=OBS_HILOG_CLEAR_FAILED attempt=%d error=%s",
+                    qid,
+                    attempt,
+                    format_command_failure(clear_result),
+                )
+            if attempt == 1:
+                time.sleep(1)
 
         command = self.hdc.command(["shell", "hilog"])
         line_queue: queue.Queue[str | None] = queue.Queue()
@@ -188,6 +197,15 @@ class ObsDslCollector:
                     match_path = self._save_hilog_match(qid, line, stream.recent_lines)
                     url_path = self._save_obs_url(qid, url)
                     markdown = self._download_markdown(url)
+                    if markdown is None:
+                        self._log.warning(
+                            "[%s] stage=OBS_DOWNLOAD_FAILED_SKIPPED url=%s match=%s url_file=%s",
+                            qid,
+                            url,
+                            match_path,
+                            url_path,
+                        )
+                        continue
                     markdown_path = self._save_markdown(qid, markdown)
                     extraction = parse_obs_markdown(qid, markdown)
                     if not is_complete_dsl(extraction.records):
@@ -224,10 +242,15 @@ class ObsDslCollector:
         stop_process(stream.process)
         stream.reader.join(timeout=2)
 
-    def _download_markdown(self, url: str) -> str:
+    def _download_markdown(self, url: str) -> str | None:
         timeout = max(0.1, float(self.config.obs_download_timeout))
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            content = response.read()
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                content = response.read()
+        except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+            self._record_seen_url(url)
+            self._log.warning("OBS markdown download failed: url=%s error=%s", url, exc)
+            return None
         return content.decode("utf-8-sig", errors="replace")
 
     def _save_markdown(self, qid: str, markdown: str) -> Path:

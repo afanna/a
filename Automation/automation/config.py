@@ -13,9 +13,11 @@ class AutomationConfig:
     remote_dump: str = "/data/local/tmp/current_ui_tree.json"
     remote_snapshot: str = "/data/local/tmp/snapshot_display.jpeg"
     ready_timeout: float = 60
+    ready_stable_count: int = 4
     post_query_wait: float = 30
     query_attempt_timeout: float = 90
     query_max_attempts: int = 3
+    query_cooldown: float = 5.0
     # 批次补发轮次：每轮对仍缺 DSL 的 query 各补发一次，直到全部补齐或达到上限
     batch_retry_rounds: int = 5
     dsl_source: str = "obs"
