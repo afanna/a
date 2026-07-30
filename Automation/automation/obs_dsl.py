@@ -33,6 +33,7 @@ OBS_SIGNATURE_RE = re.compile(r"X-Amz-Signature=[0-9a-fA-F]{64}$")
 SEEN_URLS_FILENAME = "seen_urls.txt"
 _SEEN_URLS_MAX_LINES = 10000
 _SEEN_URLS_KEEP_LINES = 5000
+_URL_JOIN_WINDOW_LINES = 30
 
 
 def is_complete_obs_url(url: str) -> bool:
@@ -184,6 +185,12 @@ class ObsDslCollector:
                     stream.recent_lines.pop(0)
 
                 url = extract_obs_url(line)
+                matched_text = line
+                if not url:
+                    joined_lines = join_hilog_url_window(stream.recent_lines[-_URL_JOIN_WINDOW_LINES:])
+                    url = extract_obs_url(joined_lines)
+                    if url:
+                        matched_text = "\n".join(stream.recent_lines[-_URL_JOIN_WINDOW_LINES:])
                 if url:
                     if not is_complete_obs_url(url):
                         # 链接被 hilog 截断，下载必然 403；不记入已见文件，等待完整输出
@@ -194,7 +201,7 @@ class ObsDslCollector:
                         self._log.info("[%s] stage=OBS_URL_DUPLICATE url=%s", qid, url)
                         continue
                     self._record_seen_url(url)
-                    match_path = self._save_hilog_match(qid, line, stream.recent_lines)
+                    match_path = self._save_hilog_match(qid, matched_text, stream.recent_lines)
                     url_path = self._save_obs_url(qid, url)
                     markdown = self._download_markdown(url)
                     if markdown is None:
@@ -224,7 +231,7 @@ class ObsDslCollector:
                         url_path,
                         int(elapsed * 1000),
                     )
-                    self._log.debug("[%s] stage=OBS_DSL_MATCH line=%s", qid, line.rstrip("\r\n"))
+                    self._log.debug("[%s] stage=OBS_DSL_MATCH line=%s", qid, matched_text.rstrip("\r\n"))
                     return ObsDslResult(
                         extraction=extraction,
                         url=url,
@@ -334,6 +341,18 @@ def extract_obs_url(line: str) -> str | None:
         if url:
             return url
     return None
+
+
+def join_hilog_url_window(lines: list[str]) -> str:
+    return "".join(strip_hilog_prefix(line).strip() for line in lines)
+
+
+def strip_hilog_prefix(line: str) -> str:
+    return re.sub(
+        r"^\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+\S+\s+[^:]+:\s*",
+        "",
+        line,
+    )
 
 
 def normalize_obs_url(candidate: str) -> str | None:

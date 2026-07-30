@@ -218,33 +218,25 @@ class XiaoyiClient:
         raise TimeoutError(f"Timed out waiting for Xiaoyi reply to become stable for query {qid}")
 
     def _ensure_input(self) -> tuple[int, int]:
-        last_tree: UiTree | None = None
+        toggled_from_voice = False
         for attempt in range(1, 4):
             tree = self.dump_tree()
-            last_tree = tree
             candidate = tree.locate_control("input")
             if candidate and not tree.is_voice_mode():
                 return candidate.center
+
+            if tree.is_voice_mode() and not toggled_from_voice:
+                toggle = tree.locate_control("keyboard_toggle")
+                if not toggle:
+                    self._log.error("_ensure_input: voice mode but keyboard toggle not found")
+                    raise RuntimeError("Voice mode detected but keyboard toggle was not found")
+                self.hdc.ui_input("click", *toggle.center)
+                toggled_from_voice = True
+
             self._log.info("_ensure_input: input not ready attempt=%d voice_mode=%s", attempt, tree.is_voice_mode())
             time.sleep(1)
 
-        tree = last_tree or self.dump_tree()
-        toggle = tree.locate_control("keyboard_toggle")
-        if not toggle:
-            self._log.error("_ensure_input: no input or keyboard toggle found")
-            raise RuntimeError("Neither text input nor keyboard toggle was found")
-
-        for attempt in range(1, 3):
-            self.hdc.ui_input("click", *toggle.center)
-            time.sleep(1)
-            tree = self.dump_tree()
-            candidate = tree.locate_control("input")
-            if candidate and not tree.is_voice_mode():
-                return candidate.center
-            toggle = tree.locate_control("keyboard_toggle") or toggle
-            self._log.info("_ensure_input: input still missing after toggle attempt=%d voice_mode=%s", attempt, tree.is_voice_mode())
-
-        raise RuntimeError("Text input was not found after clicking keyboard toggle")
+        raise RuntimeError("Text input was not found")
 
     def _clear_input(self, x: int, y: int) -> None:
         self.hdc.ui_input("click", x, y)
