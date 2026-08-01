@@ -51,8 +51,17 @@ class AutomationConfig:
     hilog_output_dir_override: Path | None = None
     enable_card_crop: bool = True
     enable_rule_check: bool = False
+    enable_dsl_aesthetic_validator: bool = True
     card_crop_config: Path | None = None
     rule_check_config_dir: Path | None = None
+    dsl_aesthetic_validator_dir: Path = Path("dsl-aesthetic-validator-0.6.2")
+    dsl_aesthetic_output_dir_override: Path | None = None
+    dsl_aesthetic_scope: str = "public"
+    dsl_aesthetic_strict: bool = False
+    dsl_aesthetic_allow_undetermined: bool = True
+    dsl_aesthetic_include_contrast: bool = False
+    dsl_aesthetic_include_heuristics: bool = False
+    dsl_aesthetic_timeout: float = 60
     card_crop_debug: bool = False
     debug: bool = False
 

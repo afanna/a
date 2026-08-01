@@ -1,0 +1,3 @@
+{"version":"v0.9","createSurface":{"surfaceId":"example-clear","catalogId":"ohos.a2ui.extended.catalog","width":146,"height":146}}
+{"version":"v0.9","updateComponents":{"surfaceId":"example-clear","root":"root","components":[{"id":"root","component":"Row","children":["check","label"],"itemMargin":8,"styles":{"width":146,"height":146,"padding":12,"alignItems":"center"}},{"id":"check","component":"Checkbox","styles":{"width":20,"height":20}},{"id":"label","component":"Text","content":"完成提醒","styles":{"width":80,"height":20,"fontSize":14,"maxLines":1}}]}}
+{"version":"v0.9","updateDataModel":{"surfaceId":"example-clear","path":"/","value":{}}}

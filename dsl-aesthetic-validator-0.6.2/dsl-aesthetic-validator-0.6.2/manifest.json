@@ -1,0 +1,114 @@
+{
+  "name": "dsl-aesthetic-validator",
+  "version": "0.6.2",
+  "status": "packaged_local",
+  "entrypoints": {
+    "cli": "dsl_aesthetic.py",
+    "validator": "validate_aesthetic.py"
+  },
+  "runtime": "python>=3.10",
+  "validatorDependencies": [],
+  "input": {
+    "formats": [
+      "jsonl",
+      "json-array",
+      "markdown-genui-fence",
+      "stdin"
+    ],
+    "contract": "HarmonyOS A2UI/GenUI createSurface + updateComponents; updateDataModel is required for resolvable dynamic text"
+  },
+  "output": {
+    "formats": [
+      "text",
+      "json"
+    ],
+    "statuses": [
+      "pass",
+      "pass_with_warnings",
+      "needs_review",
+      "fail"
+    ],
+    "publicLabels": [
+      "内容或文字重叠",
+      "文字区域拥挤",
+      "文字/控件贴边"
+    ],
+    "ruleVerdicts": [
+      "issue",
+      "clear",
+      "undetermined",
+      "not_applicable"
+    ]
+  },
+  "defaultProfile": "three_visible_evidence",
+  "principle": "false negatives are acceptable; unsupported positive judgments are not",
+  "defaultDiagnosticCodes": [
+    "AESTHETIC_LAYOUT_BOUNDS_OVERFLOW",
+    "AESTHETIC_CONTROL_GROUP_GAP_LOW",
+    "AESTHETIC_CONTROL_INTRINSIC_GAP_LOW",
+    "AESTHETIC_TEXT_COLLISION_RISK",
+    "AESTHETIC_TEXT_GAP_LOW",
+    "AESTHETIC_TEXT_ICON_GAP_LOW",
+    "AESTHETIC_LAYOUT_EDGE_CLEARANCE_LOW",
+    "AESTHETIC_SURFACE_CONTENT_EDGE_CLEARANCE_LOW",
+    "AESTHETIC_STACK_TEXT_IMAGE_OVERLAP",
+    "AESTHETIC_LAYOUT_VERTICAL_DENSITY_HIGH",
+    "AESTHETIC_TEXT_CLIP_RISK",
+    "AESTHETIC_TEXT_FRAGMENT_CLIP_RISK",
+    "AESTHETIC_TEXT_DENSITY_HIGH",
+    "AESTHETIC_PILL_CONTENT_OVERFLOW"
+  ],
+  "internalDiagnosticCodes": [
+    "AESTHETIC_INPUT_READ_FAILED",
+    "AESTHETIC_PRECONDITION_FAILED",
+    "AESTHETIC_ACTION_TOO_SMALL",
+    "AESTHETIC_COLOR_CONTRAST_UNDETERMINED",
+    "AESTHETIC_COLOR_CONTRAST_LOW",
+    "AESTHETIC_COLOR_ACCENT_OVERUSED",
+    "AESTHETIC_COLOR_ROLE_INCONSISTENT",
+    "AESTHETIC_COLOR_GRADIENT_OVERCOMPLEX",
+    "AESTHETIC_COLOR_ALPHA_STACK_COMPLEX",
+    "AESTHETIC_TYPO_TOO_MANY_LEVELS",
+    "AESTHETIC_TYPO_BOLD_OVERUSED",
+    "AESTHETIC_STYLE_RADIUS_INCONSISTENT",
+    "AESTHETIC_STYLE_SHADOW_OVERUSED",
+    "AESTHETIC_STYLE_STROKE_INCONSISTENT",
+    "AESTHETIC_STYLE_SURFACE_NESTING_EXCESSIVE",
+    "AESTHETIC_LAYOUT_SPACING_NON_TOKEN",
+    "AESTHETIC_LAYOUT_SPACING_MISSING",
+    "AESTHETIC_LAYOUT_SPACING_INCONSISTENT",
+    "AESTHETIC_COLOR_PALETTE_TOO_COMPLEX",
+    "AESTHETIC_AFFORDANCE_FALSE_POSITIVE",
+    "AESTHETIC_HIERARCHY_NO_PRIMARY",
+    "AESTHETIC_HIERARCHY_TOO_MANY_PRIMARY",
+    "AESTHETIC_HIERARCHY_ACTION_OVER_PRIMARY",
+    "AESTHETIC_LAYOUT_DENSITY_HIGH"
+  ],
+  "optionalProfiles": [
+    "contrast",
+    "heuristics"
+  ],
+  "examples": [
+    "examples/issue-checkbox-gap.jsonl",
+    "examples/clear-checkbox-gap.jsonl"
+  ],
+  "sourceRepository": {
+    "tools": {
+      "packageBuilder": "build_cli_package.py",
+      "reviewBuilder": "build_review.py",
+      "dslCalibration": "validate_dsl_agent_calibration.py",
+      "adversarialGeneralization": "validate_adversarial_generalization.py",
+      "alignmentBuilder": "build_visual_dsl_alignment.py"
+    },
+    "reviewBuilderDependencies": [
+      "unar"
+    ],
+    "acceptanceArtifact": "output/validate-report-final-20260719/review-index.html",
+    "tests": [
+      "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p 'test_*.py'",
+      "PYTHONDONTWRITEBYTECODE=1 python3 validate_dsl_agent_calibration.py --audit output/validate-report-final-20260719/dsl-calibration-audit.json",
+      "PYTHONDONTWRITEBYTECODE=1 python3 validate_adversarial_generalization.py --audit output/adversarial-generalization-20260721/audit.json --html output/adversarial-generalization-20260721/index.html",
+      "PYTHONDONTWRITEBYTECODE=1 python3 build_visual_dsl_alignment.py"
+    ]
+  }
+}

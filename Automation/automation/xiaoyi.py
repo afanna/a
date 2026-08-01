@@ -90,13 +90,13 @@ class XiaoyiClient:
         attempts = max(1, int(max_attempts or self.config.query_max_attempts))
         for attempt in range(1, attempts + 1):
             try:
+                self.clear_context(qid, attempt=attempt)
                 self.wait_ready()
                 extraction = self._send_query_and_collect_dsl(qid, query)
                 self._seen_dsl_fingerprints.add(dsl_fingerprint(extraction))
                 dsl_path = self.config.dsl_path_for(qid)
                 self.extractor.save_jsonl(extraction, dsl_path)
                 self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
-                self.clear_context(qid)
                 self._cool_down_after_query(qid)
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
             except (TimeoutError, HdcError) as exc:
@@ -250,7 +250,7 @@ class XiaoyiClient:
         self._log.info("[%s] stage=QUERY_COOLDOWN seconds=%.1f", qid, cooldown)
         time.sleep(cooldown)
 
-    def clear_context(self, qid: str) -> None:
+    def clear_context(self, qid: str, *, attempt: int | None = None) -> None:
         if not self.config.context_clear_enabled:
             return
         points = self.config.context_clear_points
@@ -263,8 +263,9 @@ class XiaoyiClient:
                 self.hdc.ui_input("click", x, y)
                 time.sleep(self.config.context_clear_wait)
                 self._log.info(
-                    "[%s] stage=CONTEXT_CLEAR_TAP step=%d/%d x=%d y=%d wait=%.1fs",
+                    "[%s] stage=CONTEXT_CLEAR_TAP attempt=%s step=%d/%d x=%d y=%d wait=%.1fs",
                     qid,
+                    attempt if attempt is not None else "-",
                     index,
                     len(points),
                     x,

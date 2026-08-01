@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 
@@ -13,7 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from automation.config import AutomationConfig
 from automation.hdc import HdcClient, HdcError
-from automation.pipeline import AutomationPipeline
+from automation.pipeline import (
+    AutomationPipeline,
+    dsl_aesthetic_command,
+    dsl_aesthetic_output_root,
+    dsl_aesthetic_report_dir,
+    find_dsl_aesthetic_entrypoint,
+)
 from automation.queries import QueryCase, load_queries
 
 try:
@@ -76,7 +83,7 @@ def add_common_arguments(
     parser.add_argument("--config", type=Path, default=config_default, help="Runtime JSON config path")
     parser.add_argument("--sn", default=default, help="Target device SN")
     parser.add_argument("--debug", action="store_true", default=default, help="Enable debug logging")
-    parser.add_argument("--enable-context-clear", dest="context_clear_enabled", action="store_true", default=default, help="Click configured points to clear Xiaoyi context after each DSL is saved")
+    parser.add_argument("--enable-context-clear", dest="context_clear_enabled", action="store_true", default=default, help="Click configured points to clear Xiaoyi context before each query is sent")
 
     if include_card_crop_enable:
         parser.add_argument("--enable-card-crop", action="store_true", default=default, help="Crop card images after screenshots")
@@ -118,6 +125,14 @@ def add_common_arguments(
     parser.add_argument("--screenshot-retries", type=int, default=default, help=hidden)
     parser.add_argument("--screenshot-write-wait", type=float, default=default, help=hidden)
     parser.add_argument("--card-crop-config", type=Path, default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-validator-dir", type=Path, default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-output-dir", type=Path, default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-scope", type=str, default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-timeout", type=float, default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-strict", action="store_true", default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-allow-undetermined", action="store_true", default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-include-contrast", action="store_true", default=default, help=hidden)
+    parser.add_argument("--dsl-aesthetic-include-heuristics", action="store_true", default=default, help=hidden)
     
     parser.add_argument("--aesthetics-model", type=str, default=default, help=hidden)
     parser.add_argument("--aesthetics-output-mode", type=str, choices=["full", "score-only"], default=default, help=hidden)
@@ -156,6 +171,24 @@ def build_parser() -> argparse.ArgumentParser:
     render_dsl_dir = subparsers.add_parser("render-dsl-dir", help="Render existing DSL files and screenshot")
     add_common_arguments(render_dsl_dir, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
     render_dsl_dir.add_argument("--dsl-dir", type=Path, help="Directory containing *.jsonl DSL files")
+
+    dsl_aesthetic = subparsers.add_parser(
+        "dsl-aesthetic",
+        help="Run the standalone DSL aesthetic validator on a file or directory",
+    )
+    dsl_aesthetic.add_argument("--config", type=Path, default=DEFAULT_AUTOMATION_CONFIG, help="Runtime JSON config path")
+    dsl_aesthetic.add_argument("--debug", action="store_true", default=None, help="Enable debug logging")
+    hidden = argparse.SUPPRESS
+    dsl_aesthetic.add_argument("--dsl-aesthetic-validator-dir", type=Path, default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-output-dir", type=Path, default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-scope", type=str, default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-timeout", type=float, default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-strict", action="store_true", default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-allow-undetermined", action="store_true", default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-include-contrast", action="store_true", default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--dsl-aesthetic-include-heuristics", action="store_true", default=hidden, help=hidden)
+    dsl_aesthetic.add_argument("--input", type=Path, required=True, help="Input DSL file or directory")
+    dsl_aesthetic.add_argument("--output", type=Path, help="Output file or directory")
     
     parallel = subparsers.add_parser("parallel", help="Run the render-and-crop batch on multiple devices")
     add_common_arguments(parallel, with_defaults=False, include_card_crop=True, include_card_crop_enable=True)
@@ -231,8 +264,17 @@ def make_config(
         "hilog_output_dir_override": value("hilog_output_dir", None),
         "enable_card_crop": value("enable_card_crop", True),
         "enable_rule_check": value("enable_rule_check", False),
+        "enable_dsl_aesthetic_validator": value("enable_dsl_aesthetic_validator", True),
         "card_crop_config": value("card_crop_config", DEFAULT_CARD_CROP_CONFIG),
         "rule_check_config_dir": value("rule_check_config_dir", None),
+        "dsl_aesthetic_validator_dir": value("dsl_aesthetic_validator_dir", Path("dsl-aesthetic-validator-0.6.2")),
+        "dsl_aesthetic_output_dir_override": value("dsl_aesthetic_output_dir", None),
+        "dsl_aesthetic_scope": value("dsl_aesthetic_scope", "public"),
+        "dsl_aesthetic_strict": value("dsl_aesthetic_strict", False),
+        "dsl_aesthetic_allow_undetermined": value("dsl_aesthetic_allow_undetermined", True),
+        "dsl_aesthetic_include_contrast": value("dsl_aesthetic_include_contrast", False),
+        "dsl_aesthetic_include_heuristics": value("dsl_aesthetic_include_heuristics", False),
+        "dsl_aesthetic_timeout": value("dsl_aesthetic_timeout", 60.0),
         "card_crop_debug": value("card_crop_debug", False),
         "debug": value("debug", False),
     }
@@ -360,6 +402,8 @@ def coerce_automation_values(values: dict) -> dict:
         "hilog_output_dir_override",
         "obs_markdown_dir_override",
         "obs_hilog_match_dir_override",
+        "dsl_aesthetic_validator_dir",
+        "dsl_aesthetic_output_dir_override",
     }
     coerced = {key: Path(value) if key in path_keys and value is not None else value for key, value in values.items()}
     if "dsl_source" in coerced:
@@ -440,6 +484,9 @@ def main() -> int:
         return 0
 
     config, _ = make_config(args)
+
+    if args.command == "dsl-aesthetic":
+        return run_dsl_aesthetic(args, config)
     
     if args.command == "parallel":
         return run_parallel(args)
@@ -568,6 +615,88 @@ def run_parallel(args: argparse.Namespace) -> int:
                 continue
 
     return 1 if failed else 0
+
+def run_dsl_aesthetic(args: argparse.Namespace, config: AutomationConfig) -> int:
+    entrypoint = find_dsl_aesthetic_entrypoint(config)
+    input_path = args.input.absolute()
+    if not input_path.exists():
+        raise SystemExit(f"Input path not found: {input_path}")
+
+    if input_path.is_file():
+        run_dsl_aesthetic_file(
+            config,
+            entrypoint,
+            input_path,
+            output=args.output.absolute() if args.output else None,
+        )
+        return 0
+
+    if not input_path.is_dir():
+        raise SystemExit(f"Input path must be a file or directory: {input_path}")
+
+    output_root = args.output.absolute() if args.output else dsl_aesthetic_output_root(config)
+    if output_root.suffix:
+        raise SystemExit("--output must be a directory when --input is a directory")
+    files = sorted(input_path.glob("*.jsonl"))
+    if not files:
+        raise SystemExit(f"No DSL files found: {input_path}")
+
+    for dsl_path in files:
+        run_dsl_aesthetic_file(
+            config,
+            entrypoint,
+            dsl_path,
+            output=output_root / dsl_path.stem,
+        )
+    print(f"DSL aesthetic validation done: total={len(files)} output={output_root}")
+    return 0
+
+def run_dsl_aesthetic_file(
+    config: AutomationConfig,
+    entrypoint: Path,
+    dsl_path: Path,
+    *,
+    output: Path | None = None,
+) -> Path:
+    report_dir = output if output else dsl_aesthetic_report_dir(config, dsl_path.stem)
+    if report_dir.suffix:
+        result_path = report_dir
+        report_dir = result_path.parent
+    else:
+        result_path = report_dir / "result.json"
+
+    report_dir.mkdir(parents=True, exist_ok=True)
+    command = dsl_aesthetic_command(config=config, entrypoint=entrypoint, dsl_path=dsl_path)
+    completed = subprocess.run(
+        command,
+        cwd=str(entrypoint.parent),
+        capture_output=True,
+        check=False,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=config.dsl_aesthetic_timeout,
+    )
+
+    stdout = completed.stdout or ""
+    stderr = completed.stderr or ""
+    (report_dir / "stdout.txt").write_text(stdout, encoding="utf-8")
+    if stderr:
+        (report_dir / "stderr.txt").write_text(stderr, encoding="utf-8")
+
+    try:
+        parsed = json.loads(stdout)
+    except json.JSONDecodeError:
+        parsed = {
+            "dsl_path": str(dsl_path),
+            "returncode": completed.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+        }
+
+    result_path.write_text(json.dumps(parsed, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"DSL aesthetic done: {dsl_path.name} -> {result_path}")
+    return result_path
 
 def validate_device_target(config: AutomationConfig) -> None:
     try:

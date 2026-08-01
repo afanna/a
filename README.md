@@ -157,6 +157,23 @@ python Automation\main.py batch --queries .\queries.jsonl
 python Automation\main.py collect-dsl --queries .\queries.jsonl
 ```
 
+### `dsl-aesthetic`
+
+独立运行 DSL 审美校验器。推荐走这个包装命令，脚本目录变动时只要改 `Automation/config/automation.json` 里的 `dsl_aesthetic_validator_dir` 就行。
+它不需要 HDC 设备，也不会启动渲染工程。
+
+```powershell
+python Automation\main.py dsl-aesthetic --input .\dsl\weather_card_01.jsonl
+```
+
+输入可以是单个 `.jsonl` 文件，也可以是目录。默认结果写到 `output/dsl_aesthetic/<qid>/result.json`。
+
+如果你想直接调用外部脚本，也可以用：
+
+```powershell
+python dsl-aesthetic-validator-0.6.2\dsl-aesthetic-validator-0.6.2\dsl_aesthetic.py .\dsl\weather_card_01.jsonl --format json --scope public
+```
+
 ### `render-dsl-dir`
 
 渲染已有 DSL 文件，截图后裁切卡片。
@@ -292,7 +309,12 @@ Automation/config/automation.json
 | `context_clear_enabled` | `false` | 是否在每条 DSL 保存成功后清理小艺上下文 |
 | `context_clear_points` | `[{ "x": 1150, "y": 255 }]` | 清理上下文点击坐标 |
 | `enable_card_crop` | `true` | 截图后自动裁切卡片 |
-| `enable_rule_check` | `false` | 普通流程不执行规则评分 |
+| `enable_rule_check` | `true` | 普通流程不执行规则评分 |
+| `enable_dsl_aesthetic_validator` | `true` | DSL 保存后自动跑外置审美校验器 |
+| `dsl_aesthetic_validator_dir` | `dsl-aesthetic-validator-0.6.2` | 外置审美校验器目录 |
+| `dsl_aesthetic_output_dir` | `null` | 审美校验结果目录 |
+| `dsl_aesthetic_scope` | `public` | 审美校验范围 |
+| `dsl_aesthetic_timeout` | `60` | 单次审美校验超时 |
 | `card_crop_config` | `Automation/config/card_crop.json` | 裁切坐标配置 |
 
 上下文清理说明：
@@ -365,6 +387,7 @@ Automation-screenshot/
 │   └── .work/                      # 临时工作目录和日志
 ├── A2UI_Render/                    # HarmonyOS 渲染工程模板
 ├── Aesthetic_Rule_Check/           # 内置纯规则美学评分包（enable_rule_check 时自动调用）
+├── dsl-aesthetic-validator-0.6.2/  # 外置 DSL 审美校验器（可替换目录）
 ├── visual_aesthetics/              # 独立视觉评分模块
 ├── dsl/                            # DSL 产物
 ├── output/                         # 最终卡片图片与规则评分报告（output/reports/）

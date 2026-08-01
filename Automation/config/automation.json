@@ -122,6 +122,33 @@
     // 开启后输出到 output/reports，不调用任何外部模型。
     "enable_rule_check": true,
 
+    // 独立 DSL 审美校验器默认开启。若只想保留主流程，可改成 false。
+    "enable_dsl_aesthetic_validator": true,
+
+    // 独立 DSL 审美校验器目录。程序会递归查找 dsl_aesthetic.py / validate_aesthetic.py。
+    "dsl_aesthetic_validator_dir": "dsl-aesthetic-validator-0.6.2",
+
+    // 独立 DSL 审美校验结果目录。null 表示输出到 output/dsl_aesthetic。
+    "dsl_aesthetic_output_dir": null,
+
+    // 审美校验范围：public 或 internal。
+    "dsl_aesthetic_scope": "public",
+
+    // warning 是否也按失败处理。
+    "dsl_aesthetic_strict": false,
+
+    // 是否允许 needs_review 返回 0。
+    "dsl_aesthetic_allow_undetermined": true,
+
+    // 是否启用 contrast 检查。
+    "dsl_aesthetic_include_contrast": false,
+
+    // 是否启用 heuristic 检查。
+    "dsl_aesthetic_include_heuristics": false,
+
+    // 审美校验超时，单位秒。
+    "dsl_aesthetic_timeout": 60.0,
+
     // 卡片裁切配置文件路径，裁切位置变化时优先改这个文件。
     "card_crop_config": "Automation/config/card_crop.json",
 

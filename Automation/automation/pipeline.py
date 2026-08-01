@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from .arkts import ArkTsRunner
 from .card_crop import CardCropper, load_card_crop_config
-from .config import AutomationConfig
+from .config import AutomationConfig, safe_path_name
 from .hdc import HdcClient, HdcError
 from .hilog import HilogCollector
 from .logger import get_logger
@@ -38,6 +41,7 @@ class AutomationPipeline:
     def run_one(self, case: QueryCase) -> RenderResult:
         """Run one query through DSL extraction, render, screenshot, and card crop."""
         query_result = self.xiaoyi.collect_dsl_for_query(case.qid, case.query)
+        self._run_dsl_aesthetic_validator(case.qid, query_result.dsl_path, query=case.query)
         screenshot = self.arkts.render(case.qid, query_result.dsl_path)
         card_path = self._crop_card(case.qid, screenshot)
         rule_report_path = self._rule_check_card(case.qid, case.query, query_result.dsl_path, card_path)
@@ -94,7 +98,9 @@ class AutomationPipeline:
                 self._log.info("DSL RETRY ROUND %d/%d: pending=%d", round_no, max_rounds, len(pending))
             for case in pending:
                 try:
-                    query_results.append(self.xiaoyi.collect_dsl_for_query(case.qid, case.query, max_attempts=1))
+                    query_result = self.xiaoyi.collect_dsl_for_query(case.qid, case.query, max_attempts=1)
+                    self._run_dsl_aesthetic_validator(case.qid, query_result.dsl_path, query=case.query)
+                    query_results.append(query_result)
                 except (TimeoutError, HdcError) as exc:
                     self._log.error("DSL failed: qid=%s round=%d error=%s", case.qid, round_no, exc)
                     self._capture_failure_hilog(case.qid)
@@ -140,6 +146,7 @@ class AutomationPipeline:
         for dsl_path in dsl_files:
             qid = qid_from_dsl_path(dsl_path, self.config.safe_sn)
             try:
+                self._run_dsl_aesthetic_validator(qid, dsl_path, query=query_map.get(qid, ""))
                 screenshot = self.arkts.render(qid, dsl_path)
             except Exception as exc:
                 render_fail += 1
@@ -184,6 +191,62 @@ class AutomationPipeline:
             result.path,
             result.elapsed_seconds,
         )
+
+    def _run_dsl_aesthetic_validator(self, qid: str, dsl_path: Path, *, query: str = "") -> Path | None:
+        if not self.config.enable_dsl_aesthetic_validator:
+            return None
+        try:
+            entrypoint = find_dsl_aesthetic_entrypoint(self.config)
+        except Exception as exc:
+            self._log.warning("DSL aesthetic validator unavailable: %s", exc)
+            return None
+
+        report_dir = dsl_aesthetic_report_dir(self.config, qid)
+        result_path = report_dir / "result.json"
+        if result_path.exists():
+            return result_path
+
+        report_dir.mkdir(parents=True, exist_ok=True)
+        command = dsl_aesthetic_command(
+            config=self.config,
+            entrypoint=entrypoint,
+            dsl_path=dsl_path,
+        )
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=str(entrypoint.parent),
+                capture_output=True,
+                check=False,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=self.config.dsl_aesthetic_timeout,
+            )
+        except Exception as exc:
+            self._log.warning("DSL aesthetic validator failed: qid=%s dsl=%s error=%s", qid, dsl_path, exc)
+            return None
+
+        stdout = completed.stdout or ""
+        stderr = completed.stderr or ""
+        (report_dir / "stdout.txt").write_text(stdout, encoding="utf-8")
+        if stderr:
+            (report_dir / "stderr.txt").write_text(stderr, encoding="utf-8")
+
+        try:
+            parsed = json.loads(stdout)
+        except json.JSONDecodeError:
+            parsed = {
+                "qid": qid,
+                "dsl_path": str(dsl_path),
+                "query": query,
+                "returncode": completed.returncode,
+                "stdout": stdout,
+                "stderr": stderr,
+            }
+        result_path.write_text(json.dumps(parsed, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._log.info("DSL aesthetic validated: qid=%s report=%s returncode=%d", qid, result_path, completed.returncode)
+        return result_path
 
     def _load_query_map(self) -> dict[str, str]:
         """按 qid 查找 query 文本，供规则评分使用；queries 文件不可读时返回空表。"""
@@ -266,3 +329,59 @@ def qid_from_dsl_path(path: Path, safe_sn: str | None = None) -> str:
     if safe_sn and qid.startswith(f"{safe_sn}_"):
         return qid[len(safe_sn) + 1 :]
     return qid
+
+
+def dsl_aesthetic_output_root(config: AutomationConfig) -> Path:
+    base = config.dsl_aesthetic_output_dir_override or (config.output_dir / "dsl_aesthetic")
+    if not base.is_absolute():
+        base = config.project_root / base
+    return base
+
+
+def dsl_aesthetic_report_dir(config: AutomationConfig, qid: str) -> Path:
+    return dsl_aesthetic_output_root(config) / safe_path_name(qid)
+
+
+def find_dsl_aesthetic_entrypoint(config: AutomationConfig) -> Path:
+    root = config.dsl_aesthetic_validator_dir
+    if not root.is_absolute():
+        root = config.project_root / root
+    root = root.resolve()
+    if root.is_file():
+        if root.name in {"dsl_aesthetic.py", "validate_aesthetic.py"}:
+            return root
+        raise FileNotFoundError(f"Unsupported DSL aesthetic validator entrypoint: {root}")
+    if not root.exists():
+        raise FileNotFoundError(f"DSL aesthetic validator directory not found: {root}")
+
+    candidates = [*root.rglob("dsl_aesthetic.py"), *root.rglob("validate_aesthetic.py")]
+    if not candidates:
+        raise FileNotFoundError(f"DSL aesthetic validator entrypoint not found under: {root}")
+    candidates.sort(key=lambda path: (len(path.parts), 0 if path.name == "dsl_aesthetic.py" else 1, str(path)))
+    return candidates[0]
+
+
+def dsl_aesthetic_command(
+    *,
+    config: AutomationConfig,
+    entrypoint: Path,
+    dsl_path: Path,
+) -> list[str]:
+    command = [
+        sys.executable,
+        str(entrypoint),
+        str(dsl_path),
+        "--format",
+        "json",
+        "--scope",
+        config.dsl_aesthetic_scope,
+    ]
+    if config.dsl_aesthetic_strict:
+        command.append("--strict")
+    if config.dsl_aesthetic_allow_undetermined:
+        command.append("--allow-undetermined")
+    if config.dsl_aesthetic_include_contrast:
+        command.append("--include-contrast")
+    if config.dsl_aesthetic_include_heuristics:
+        command.append("--include-heuristics")
+    return command

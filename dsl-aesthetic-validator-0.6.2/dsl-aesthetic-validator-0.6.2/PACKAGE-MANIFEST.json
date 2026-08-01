@@ -1,0 +1,39 @@
+{
+  "name": "dsl-aesthetic-validator",
+  "version": "0.6.2",
+  "entrypoint": "dsl_aesthetic.py",
+  "runtime": "python>=3.10",
+  "dependencies": [],
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "97938cd6cec36f1053c69d7366b4264c55e8935bb57b7e422787de48ecb8ea66",
+      "bytes": 12044
+    },
+    {
+      "path": "dsl_aesthetic.py",
+      "sha256": "ef52e0e0245d3095a5e4d665085e1bc0b5883429ec7f4ced82d20ccfe0d9b683",
+      "bytes": 192
+    },
+    {
+      "path": "examples/clear-checkbox-gap.jsonl",
+      "sha256": "e0fa22c33538272b42d80b19f2a06fcc417c151c596e5295d2c4d24f877a537f",
+      "bytes": 656
+    },
+    {
+      "path": "examples/issue-checkbox-gap.jsonl",
+      "sha256": "6884debf60b0829640e050cf639cdb110b238b12c6ccdf54626400ff080f8b07",
+      "bytes": 656
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "a205a669058b2f853af51974ca32e8ee94eac1e2d6df9724d33094fea8acf232",
+      "bytes": 3805
+    },
+    {
+      "path": "validate_aesthetic.py",
+      "sha256": "185466ca650862115944216eb62f778049043eee82920ac6a333279fab003f40",
+      "bytes": 202853
+    }
+  ]
+}
