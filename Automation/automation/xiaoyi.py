@@ -20,6 +20,10 @@ class QueryResult:
     extraction: DslExtraction
 
 
+class XiaoyiInteractionError(RuntimeError):
+    """Recoverable Xiaoyi UI interaction failure for a single query attempt."""
+
+
 class XiaoyiClient:
     def __init__(
         self,
@@ -78,7 +82,7 @@ class XiaoyiClient:
         send = tree.locate_control("send")
         if not send:
             self._log.error("send_query: Send button not found")
-            raise RuntimeError("Send button not found after text input")
+            raise XiaoyiInteractionError("Send button not found after text input")
         return send.center
 
     def click_send(self, send_xy: tuple[int, int]) -> None:
@@ -99,7 +103,7 @@ class XiaoyiClient:
                 self._log.info("[%s] stage=DSL_READY dsl=%s elapsed_ms=%d", qid, dsl_path.name, int((time.monotonic() - t0) * 1000))
                 self._cool_down_after_query(qid)
                 return QueryResult(qid=qid, dsl_path=dsl_path, extraction=extraction)
-            except (TimeoutError, HdcError) as exc:
+            except (TimeoutError, HdcError, XiaoyiInteractionError) as exc:
                 last_error = exc
                 self._log.error("[%s] stage=DSL_ATTEMPT_FAILED attempt=%d error=%s", qid, attempt, exc)
                 if attempt < attempts:
@@ -229,14 +233,14 @@ class XiaoyiClient:
                 toggle = tree.locate_control("keyboard_toggle")
                 if not toggle:
                     self._log.error("_ensure_input: voice mode but keyboard toggle not found")
-                    raise RuntimeError("Voice mode detected but keyboard toggle was not found")
+                    raise XiaoyiInteractionError("Voice mode detected but keyboard toggle was not found")
                 self.hdc.ui_input("click", *toggle.center)
                 toggled_from_voice = True
 
             self._log.info("_ensure_input: input not ready attempt=%d voice_mode=%s", attempt, tree.is_voice_mode())
             time.sleep(1)
 
-        raise RuntimeError("Text input was not found")
+        raise XiaoyiInteractionError("Text input was not found")
 
     def _clear_input(self, x: int, y: int) -> None:
         self.hdc.ui_input("click", x, y)
