@@ -1,0 +1,1618 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>业务提示词迭代评测用例设计与证据报告</title><style>body{max-width:1100px;margin:36px auto;padding:0 24px;font:15px/1.8 system-ui;color:#183047}h1,h2,h3{line-height:1.4}h2{margin-top:46px;border-bottom:2px solid #dbe5ef;padding-bottom:10px}table{border-collapse:collapse;width:100%;margin:18px 0}td,th{border:1px solid #dbe5ef;padding:9px;text-align:left;vertical-align:top}th{background:#eef4fb}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7fb;padding:16px;font-size:12px}aside{padding:16px;background:#fff5df;border-left:4px solid #ca9423}summary{cursor:pointer;color:#245eb3}a{color:#245eb3}@media print{details>*{display:block}h2{break-before:page}pre{font-size:10px}}</style><h1>业务提示词迭代评测用例设计与证据报告</h1><p>日期：2026-11-25。范围：当前已迁移的13个业务定义。每份微服务请求计一个业务用例；内部阶段和调用次数不计作业务用例数量。</p><aside>实施状态：真实生产链路评测改造正在进行，尚未完成整体验收。本报告不能作为改造已完成的证明。下列实际输出来自此前独立阶段批次，不能作为新业务执行器的版本基线。13份定义的标准仍为草稿，12份技术可运行状态不等于全部语义预期已确认。</aside><h2>1 设计与对比原则</h2><p>固定原始微服务入参、可信外部事实、环境和验收标准；分别运行迭代前后版本。内部任务、卡片说明、Plan、DSL、校验错误、修复策略与历史、主题前景都由各版本自行产生。历史中间结果只作诊断参考。</p><p>同一请求的两个版本可以产生不同合法布局与计划。胜负依据用户需求完成度，而非与旧模型输出字符串相等。明确拒绝场景应按拒绝预期验收，不能一律算失败。</p><h3>输出证据包</h3><p>每次保存：原始固定请求及实际发送请求、用例版本与标准、服务版本证据、有效配置、服务原始响应、最终Artifact及GenUI、实际阶段Trace和模型消息、校验诊断、修复路径、实际调用与耗时、人工逐项评审。传输关联标识可更新，业务输入不得漂移。缺失Trace时调用数未知，不能记零。</p><h3>版本判定</h3><table><tr><th>前后结果</th><th>判定</th><th>必要证据</th></tr><tr><td>失败→通过</td><td>改善</td><td>相同验收口径下原问题消失且无新问题，必需人工项完成</td></tr><tr><td>通过→失败</td><td>回退</td><td>指出缺失事实、错误动作或不满足约束的具体输出</td></tr><tr><td>通过→通过</td><td>质量维持；再比较成本和可读性</td><td>不能单凭耗时更低判整体更好，先保证业务质量</td></tr><tr><td>失败→失败</td><td>不能仅凭总失败数判断</td><td>区分已修复、剩余及新增问题</td></tr><tr><td>待审/证据缺失</td><td>不能判胜负</td><td>补齐评审与证据</td></tr><tr><td>输入、标准、环境或重复次数变化</td><td>不可直接比较</td><td>重新建立共同口径</td></tr></table><p>重要用例用相同重复次数比较通过比例、错误分布、调用次数和耗时分布；一次运行只能展示一次观测，不能证明统计稳定提升。修复成功率分母为实际触发修复的请求，不触发不算修复通过。若同时换模型或校验器，应报告系统版本变化，不能单独归因于提示词。</p><h2>2 用例目录</h2><table><tr><th>用例</th><th>为什么保留</th><th>定义状态</th></tr>
+<tr><td><a href="#case1">1. 指定日期倒计时</a></td><td>日期事实与动态值同时存在，容易只保留数值或把动态值静态化。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case2">2. 交通检测竞赛新闻</a></td><td>长新闻同时包含主体、人数、队伍数和获奖关系，能暴露容量与事实保护冲突。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case3">3. 手机存储空间</a></td><td>请求希望展示存储占用，但采集输入没有相应数据，检验能力边界理解。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case4">4. 元旦倒计时</a></td><td>相对时间需求已经在微服务入参中明确目标日期，检验参数和展示一致性。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case5">5. 图片密码信息</a></td><td>数值包含前导零，且必须有对象和类型归属，容易被格式化或丢标签。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case6">6. 预检拒绝请求</a></td><td>预检拒绝也是业务结果，不能将所有拒绝都算生成失败。</td><td>原采集缺少有效能力快照，需明确当前环境下的预检预期后启用</td></tr>
+<tr><td><a href="#case7">7. 结婚吉日日历</a></td><td>需求要求真实月份吉日，但没有可靠日期事实，能暴露虚构和占位式完成。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case8">8. 天气耳机与歌单</a></td><td>宽卡片包含多种动态数据及一个动作，易出现数据写入却不可见。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case9">9. 婚礼邀请函</a></td><td>人物、日期、地点、配色和素材共同构成邀请函，便于检验事实与设计要求兼顾。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case10">10. 天气家人关怀</a></td><td>天气与预警含义需有依据，同时联系人动作不能出错，主题还可能触发素材校验。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case11">11. 一周食谱</a></td><td>一周三餐和提醒远多于小卡片容量，可暴露非法压缩和隐瞒省略。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case12">12. 生日蛋糕</a></td><td>极简需求检验常见静态卡片基础能力，防止复杂场景优化损害简单场景。</td><td>可提交；标准草稿待确认</td></tr>
+<tr><td><a href="#case13">13. 周末出行标题保留</a></td><td>最小控制用例，检验明确标题保留，并作为复杂场景回归的对照。</td><td>可提交；标准草稿待确认</td></tr>
+</table>
+<h2 id="case1">1 指定日期倒计时</h2><p>业务编号：Genui-17878d0d-00296-000；版本：1。</p>
+<h3>设计理由</h3><p>日期事实与动态值同时存在，容易只保留数值或把动态值静态化。</p><h3>需要检测的问题</h3><p>日期完整性、天数真实绑定、天单位、日期与绑定参数一致。</p>
+<h3>固定输入了什么</h3><p>生成一个倒计时卡片，倒计时到2029年9月1日，显示距离该日期还有多少天。本轮卡片静态内容（用作展示的外部事实）：倒计时目标日期为2029年9月1日。</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2029-09-01&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2029-09-01&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [
+      {
+        &quot;arguments&quot;: {
+          &quot;targetDate&quot;: &quot;2029-09-01&quot;
+        },
+        &quot;candidateOutputFields&quot;: [
+          &quot;/countdownDays&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+      }
+    ],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;距离2029年9月1日还有多少天&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;倒计时&quot;,
+    &quot;uid&quot;: &quot;Genui-17878d0d-00296-000&quot;,
+    &quot;userQuery&quot;: &quot;生成一个倒计时卡片，倒计时到2029年9月1日，显示距离该日期还有多少天。本轮卡片静态内容（用作展示的外部事实）：倒计时目标日期为2029年9月1日。&quot;
+  },
+  &quot;description&quot;: &quot;距离2029年9月1日还有多少天&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;CMM-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261029014156476&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;CMM-AL10P 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;倒计时&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;生成一个倒计时卡片，倒计时到2029年9月1日，显示距离该日期还有多少天。本轮卡片静态内容（用作展示的外部事实）：倒计时目标日期为2029年9月1日。&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;生成一个倒计时卡片，倒计时到2029年9月1日，显示距离该日期还有多少天。本轮卡片静态内容（用作展示的外部事实）：倒计时目标日期为2029年9月1日。&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>目标日期为2029年9月1日，剩余天数为动态值并带天单位；不得改变目标日期。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-17878d0d-00296-000-dsl-2</td><td>failed</td><td>pending</td><td>Plan static text is not fully visible in DSL: 倒计时目标日期2029年9月1日.</td></tr>
+<tr><td>Genui-17878d0d-00296-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-17878d0d-00296-000-theme-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-17878d0d-00296-000-dsl-2</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-center&quot;},[&quot;content&quot;]]
+[&quot;content&quot;,&quot;DataDisplay&quot;,{&quot;label&quot;:&quot;倒计时&quot;,&quot;secondaryInfo&quot;:&quot;2029年9月1日&quot;,&quot;value&quot;:{&quot;path&quot;:&quot;/data/countdown/countdownDays&quot;},&quot;unit&quot;:&quot;天&quot;}]
+[&quot;/data/countdown/countdownDays&quot;,30]
+```</pre><h4>Genui-17878d0d-00296-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;距离目标日期的剩余天数（纯整数，展示时追加“天”）&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/countdown/countdownDays&quot;,&quot;componentHints&quot;:[&quot;DataDisplay&quot;,&quot;EmphasizedData&quot;]},{&quot;requirement&quot;:&quot;倒计时目标日期为2029年9月1日&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;2029年9月1日&quot;,&quot;componentHints&quot;:[&quot;DataDisplay&quot;,&quot;SecondaryBody&quot;]}],&quot;layoutHints&quot;:[&quot;S-center&quot;]}}</pre><h4>Genui-17878d0d-00296-000-theme-3</h4><pre>{&quot;themeId&quot;:&quot;fusion-ball-sport-orange&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版保留必需日期并正确绑定天数；不能仅为通过文案匹配增加重复冗余。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-17878d0d-00296-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-17878d0d-00296-000.case.json</p>
+<h2 id="case2">2 交通检测竞赛新闻</h2><p>业务编号：Genui-6ae68624-00512-000；版本：1。</p>
+<h3>设计理由</h3><p>长新闻同时包含主体、人数、队伍数和获奖关系，能暴露容量与事实保护冲突。</p><h3>需要检测的问题</h3><p>摘要忠实、必要事实覆盖、同一新闻对象归属、文字容量、修复是否丢内容。</p>
+<h3>固定输入了什么</h3><p>生成一张新闻卡，展示湖州今日新闻：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市20支代表队、60名检测精英同场竞技，申苏浙皖改扩建第TJ01标工地试验室摘得团体一等奖。本轮卡片静态内容（用作展示的外部事实）：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市公路水运工程试验检测机构及在建项目工地试验室的20支代表队、60名检测精英同场竞技。申苏浙皖改扩建第TJ01标工地试验室凭借扎实的理论功底和出色的现场发挥摘得团体一等奖，另有两家单位分获团体二等奖、三家单位分获团体三等奖。</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;今日湖州交通新闻速览&quot;,
+    &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+    &quot;romVersion&quot;: &quot;HLS-AL00 7.0.0.111&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;湖州新闻&quot;,
+    &quot;uid&quot;: &quot;Genui-6ae68624-00512-000&quot;,
+    &quot;userQuery&quot;: &quot;生成一张新闻卡，展示湖州今日新闻：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市20支代表队、60名检测精英同场竞技，申苏浙皖改扩建第TJ01标工地试验室摘得团体一等奖。本轮卡片静态内容（用作展示的外部事实）：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市公路水运工程试验检测机构及在建项目工地试验室的20支代表队、60名检测精英同场竞技。申苏浙皖改扩建第TJ01标工地试验室凭借扎实的理论功底和出色的现场发挥摘得团体一等奖，另有两家单位分获团体二等奖、三家单位分获团体三等奖。&quot;
+  },
+  &quot;description&quot;: &quot;今日湖州交通新闻速览&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;HLS-AL00&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261101150045087&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;HLS-AL00 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;湖州新闻&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;生成一张新闻卡，展示湖州今日新闻：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市20支代表队、60名检测精英同场竞技，申苏浙皖改扩建第TJ01标工地试验室摘得团体一等奖。本轮卡片静态内容（用作展示的外部事实）：2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕，来自全市公路水运工程试验检测机构及在建项目工地试验室的20支代表队、60名检测精英同场竞技。申苏浙皖改扩建第TJ01标工地试验室凭借扎实的理论功底和出色的现场发挥摘得团体一等奖，另有两家单位分获团体二等奖、三家单位分获团体三等奖。&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>新闻主体、参赛规模20支代表队和60人、获奖单位与一等奖关系忠实；只允许计划明确授权的取舍，不能将一个新闻对象任意拆成多个对象。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-6ae68624-00512-000-dsl-3</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_TEXT_CAPACITY: body: body.mainText 完整文字需要 4 行，126vp 区域仅允许 2 行；请保持已接受文字与字号，换用更合适的组件；Plan阶段才能忠实精简。</td></tr>
+<tr><td>Genui-6ae68624-00512-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-6ae68624-00512-000-plan-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-6ae68624-00512-000-repair-4</td><td>failed</td><td>pending</td><td>语义布局不符合合同：节点 header：静态TextList必须配套SingleLineTitle标题区；root.children缺少header。请选择已登记的 Layout、Region 或 Group 变体，不要修改展开后的几何。</td></tr>
+<tr><td>Genui-6ae68624-00512-000-repair-5</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_GROUP_MISMATCH: 正文有2个对象，计划含1个核心组、共1组；不能删除核心对象或以共享说明代替本条目。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少完整展示文字 &#x27;全市20支代表队、60名检测精英参赛&#x27;；须在该对象或条目内恢复，不能从其它栏或note补足。；COMPACT_STATIC_GROUP_MISMATCH: 正文存在未匹配计划的额外对象。</td></tr>
+<tr><td>Genui-6ae68624-00512-000-repair-6</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_GROUP_MISMATCH: 正文有3个对象，计划含1个核心组、共1组；不能删除核心对象或以共享说明代替本条目。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少对象名称 &#x27;湖州交通检测竞赛&#x27;；名称必须在本对象内可见，不能只保留无归属数值。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少完整展示文字 &#x27;申苏浙皖改扩建TJ01标工地试验室获团体一等奖&#x27;；须在该对象或条目内恢复，不能从其它栏或note补足。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少完整展示文字 &#x27;全市20支代表队、60名检测精英参赛&#x27;；须在该对象或条目内恢复，不能从其它栏或note补足。；COMPACT_STATIC_GROUP_MISMATCH: 正文存在未匹配计划的额外对象。</td></tr>
+<tr><td>Genui-6ae68624-00512-000-repair-7</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_GROUP_MISMATCH: 正文有2个对象，计划含1个核心组、共1组；不能删除核心对象或以共享说明代替本条目。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少完整展示文字 &#x27;申苏浙皖改扩建TJ01标工地试验室获团体一等奖&#x27;；须在该对象或条目内恢复，不能从其它栏或note补足。；COMPACT_STATIC_CORE_MISSING: 组 competition 缺少完整展示文字 &#x27;全市20支代表队、60名检测精英参赛&#x27;；须在该对象或条目内恢复，不能从其它栏或note补足。；COMPACT_STATIC_GROUP_MISMATCH: 正文存在未匹配计划的额外对象。</td></tr>
+<tr><td>Genui-6ae68624-00512-000-theme-8</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-6ae68624-00512-000-dsl-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;湖州交通检测竞赛&quot;}]
+[&quot;body&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;申苏浙皖改扩建TJ01标工地试验室获团体一等奖&quot;,&quot;secondaryText&quot;:&quot;湖州2026交通检测路面专项竞赛落幕&quot;,&quot;bottomText&quot;:&quot;全市20支代表队、60名检测精英参赛&quot;}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-6ae68624-00512-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;selectionNotes&quot;:[&quot;单一新闻事件，核心结论为竞赛落幕与团体一等奖归属，采用EmphasisText承载结论与从属说明&quot;,&quot;标题概括共同主题：湖州路面专项竞赛落幕&quot;,&quot;参赛规模与获奖名单作为从属说明，保留20支代表队、60名检测精英及获奖单位数量关系&quot;],&quot;omittedContents&quot;:[],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;topic&quot;,&quot;requirement&quot;:&quot;概括整卡共同主题：湖州交通建设工程路面专项竞赛落幕&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;湖州路面检测竞赛落幕&quot;,&quot;sourceTexts&quot;:[&quot;2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;event&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;2026年湖州市交通建设工程试验检测公路工程路面专项竞赛&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;result&quot;,&quot;requirement&quot;:&quot;竞赛落幕，申苏浙皖改扩建第TJ01标工地试验室摘得团体一等奖&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;申苏浙皖改扩建第TJ01标工地试验室摘得团体一等奖&quot;,&quot;sourceTexts&quot;:[&quot;申苏浙皖改扩建第TJ01标工地试验室凭借扎实的理论功底和出色的现场发挥摘得团体一等奖&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;scale&quot;,&quot;requirement&quot;:&quot;全市20支代表队、60名检测精英同场竞技&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;全市20支代表队、60名检测精英同场竞技&quot;,&quot;sourceTexts&quot;:[&quot;来自全市公路水运工程试验检测机构及在建项目工地试验室的20支代表队、60名检测精英同场竞技&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;description&quot;},{&quot;id&quot;:&quot;others&quot;,&quot;requirement&quot;:&quot;另有两家单位获团体二等奖、三家单位获团体三等奖&quot;,&quot;priority&quot;:&quot;should&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;另有两家单位获二等奖、三家单位获三等奖&quot;,&quot;sourceTexts&quot;:[&quot;另有两家单位分获团体二等奖、三家单位分获团体三等奖&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;details&quot;}]}]}}</pre><h4>Genui-6ae68624-00512-000-plan-2</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;theme&quot;,&quot;requirement&quot;:&quot;整卡共同主题：湖州今日新闻&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;湖州新闻&quot;,&quot;sourceTexts&quot;:[&quot;2026年湖州市交通建设工程试验检测公路工程路面专项竞赛圆满落幕&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;competition&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;路面专项竞赛&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;result&quot;,&quot;requirement&quot;:&quot;竞赛落幕及团体一等奖归属&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;团体一等奖&quot;,&quot;sourceTexts&quot;:[&quot;申苏浙皖改扩建第TJ01标工地试验室凭借扎实的理论功底和出色的现场发挥摘得团体一等奖&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;},{&quot;id&quot;:&quot;participants&quot;,&quot;requirement&quot;:&quot;参赛规模：20支代表队、60名检测精英&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;20支代表队、60名检测精英同场竞技&quot;,&quot;sourceTexts&quot;:[&quot;来自全市公路水运工程试验检测机构及在建项目工地试验室的20支代表队、60名检测精英同场竞技&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;label&quot;}]}],&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;另有两家单位获团体二等奖、三家单位获团体三等奖的奖项分布&quot;,&quot;factRefs&quot;:[]}],&quot;selectionNotes&quot;:[&quot;2x2小卡仅能承载少量单行信息，改用SingleLineList配合标题&quot;,&quot;保留竞赛结果与参赛规模两项核心，奖项分布作为补充省略&quot;,&quot;标题提炼为湖州新闻，避免长标题超行&quot;],&quot;presentationStyle&quot;:&quot;rows&quot;,&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;paletteFamily&quot;:&quot;auto&quot;}}</pre><h4>Genui-6ae68624-00512-000-repair-4</h4><pre>[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;body&quot;]]
+[&quot;body&quot;,&quot;TextList&quot;,{&quot;items&quot;:[{&quot;primaryText&quot;:&quot;湖州2026交通检测路面专项竞赛落幕&quot;,&quot;secondaryText&quot;:&quot;全市20支代表队、60名检测精英参赛&quot;},{&quot;primaryText&quot;:&quot;申苏浙皖改扩建TJ01标工地试验室获团体一等奖&quot;,&quot;secondaryText&quot;:&quot;另有两家单位获团体二等奖、三家单位获团体三等奖&quot;}]}]
+[&quot;/state/ready&quot;,true]</pre><h4>Genui-6ae68624-00512-000-repair-5</h4><pre>[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;湖州交通检测竞赛&quot;}]
+[&quot;body&quot;,&quot;TextList&quot;,{&quot;items&quot;:[{&quot;primaryText&quot;:&quot;湖州2026交通检测路面专项竞赛落幕&quot;,&quot;secondaryText&quot;:&quot;申苏浙皖改扩建TJ01标工地试验室获团体一等奖&quot;},{&quot;primaryText&quot;:&quot;参赛规模&quot;,&quot;secondaryText&quot;:&quot;全市20支代表队、60名检测精英参赛&quot;}]}]
+[&quot;/state/ready&quot;,true]</pre><h4>Genui-6ae68624-00512-000-repair-6</h4><pre>[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;body&quot;]]
+[&quot;body&quot;,&quot;TextList&quot;,{&quot;items&quot;:[{&quot;primaryText&quot;:&quot;竞赛结果&quot;,&quot;secondaryText&quot;:&quot;湖州2026交通检测路面专项竞赛落幕&quot;},{&quot;primaryText&quot;:&quot;团体一等奖&quot;,&quot;secondaryText&quot;:&quot;申苏浙皖改扩建TJ01标工地试验室&quot;},{&quot;primaryText&quot;:&quot;参赛规模&quot;,&quot;secondaryText&quot;:&quot;20支代表队、60名检测精英&quot;}]}]
+[&quot;/state/ready&quot;,true]</pre><h4>Genui-6ae68624-00512-000-repair-7</h4><pre>[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;湖州交通检测竞赛&quot;}]
+[&quot;body&quot;,&quot;TextList&quot;,{&quot;items&quot;:[{&quot;primaryText&quot;:&quot;竞赛结果&quot;,&quot;secondaryText&quot;:&quot;湖州2026交通检测路面专项竞赛落幕&quot;},{&quot;primaryText&quot;:&quot;团体一等奖&quot;,&quot;secondaryText&quot;:&quot;申苏浙皖改扩建TJ01标工地试验室&quot;}]}]
+[&quot;/state/ready&quot;,true]</pre><h4>Genui-6ae68624-00512-000-theme-8</h4><pre>{&quot;themeId&quot;:&quot;gradient-blue&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>核心信息不丢且可读；首稿成功优于多次修复后同等成功，但不得以删除信息换取低调用数。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-6ae68624-00512-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-6ae68624-00512-000.case.json</p>
+<h2 id="case3">3 手机存储空间</h2><p>业务编号：Genui-9f60f162-00074-000；版本：1。</p>
+<h3>设计理由</h3><p>请求希望展示存储占用，但采集输入没有相应数据，检验能力边界理解。</p><h3>需要检测的问题</h3><p>不虚构容量和占用；正确处理缺失信息；设置入口合法。</p>
+<h3>固定输入了什么</h3><p>帮我生成一个手机存储空间和主要占用展示的卡片
+
+本轮卡片静态内容（用作展示的外部事实）：
+点击卡片可跳转至系统存储空间设置页查看存储详情</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;abilityName&quot;: &quot;com.huawei.hmos.settings.MainAbility&quot;,
+          &quot;bundleName&quot;: &quot;com.huawei.hmos.settings&quot;,
+          &quot;intentName&quot;: &quot;Settings&quot;,
+          &quot;uri&quot;: &quot;storage_settings&quot;
+        },
+        &quot;call&quot;: &quot;clickToDeeplink&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.open.settings.storage&quot;
+    }
+  ],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.externaldrive_fill&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.externaldrive_fill&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;abilityName&quot;: &quot;com.huawei.hmos.settings.MainAbility&quot;,
+          &quot;bundleName&quot;: &quot;com.huawei.hmos.settings&quot;,
+          &quot;intentName&quot;: &quot;Settings&quot;,
+          &quot;uri&quot;: &quot;storage_settings&quot;
+        },
+        &quot;call&quot;: &quot;clickToDeeplink&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.open.settings.storage&quot;
+    }
+  ],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.externaldrive_fill&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [
+      {
+        &quot;action&quot;: {
+          &quot;args&quot;: {
+            &quot;abilityName&quot;: &quot;com.huawei.hmos.settings.MainAbility&quot;,
+            &quot;bundleName&quot;: &quot;com.huawei.hmos.settings&quot;,
+            &quot;intentName&quot;: &quot;Settings&quot;,
+            &quot;uri&quot;: &quot;storage_settings&quot;
+          },
+          &quot;call&quot;: &quot;clickToDeeplink&quot;
+        },
+        &quot;capabilityId&quot;: &quot;event.open.settings.storage&quot;
+      }
+    ],
+    &quot;description&quot;: &quot;展示手机存储空间和主要占用。&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;存储空间&quot;,
+    &quot;uid&quot;: &quot;Genui-9f60f162-00074-000&quot;,
+    &quot;userQuery&quot;: &quot;帮我生成一个手机存储空间和主要占用展示的卡片\n\n本轮卡片静态内容（用作展示的外部事实）：\n点击卡片可跳转至系统存储空间设置页查看存储详情&quot;
+  },
+  &quot;description&quot;: &quot;展示手机存储空间和主要占用。&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;SGT-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.337&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20260828000000000&quot;
+  },
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;000&quot;,
+    &quot;isNew&quot;: true,
+    &quot;sessionId&quot;: &quot;test-sessionid&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;存储空间&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {
+      &quot;userId&quot;: &quot;&quot;
+    }
+  },
+  &quot;userQuery&quot;: &quot;帮我生成一个手机存储空间和主要占用展示的卡片\n\n本轮卡片静态内容（用作展示的外部事实）：\n点击卡片可跳转至系统存储空间设置页查看存储详情&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;帮我生成一个手机存储空间和主要占用展示的卡片\n\n本轮卡片静态内容（用作展示的外部事实）：\n点击卡片可跳转至系统存储空间设置页查看存储详情&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>当前没有存储数值数据，禁止虚构占用或容量；保留合法系统存储设置入口，不宣称已展示真实占用。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-9f60f162-00074-000-dsl-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-9f60f162-00074-000-dsl-5</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-9f60f162-00074-000-plan-1</td><td>failed</td><td>pending</td><td>info_required[0] must choose exactly one of dataId, actionId, or text.</td></tr>
+<tr><td>Genui-9f60f162-00074-000-plan-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-9f60f162-00074-000-theme-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-9f60f162-00074-000-theme-6</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-9f60f162-00074-000-dsl-2</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-title-content-action&quot;,&quot;variant&quot;:&quot;title-action&quot;},[&quot;title&quot;,&quot;action&quot;]]
+[&quot;title&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;存储空间&quot;,&quot;fontSize&quot;:12}]
+[&quot;action&quot;,&quot;PillButton&quot;,{&quot;label&quot;:&quot;存储设置&quot;,&quot;icon&quot;:&quot;resources/base/media/externaldrive_fill.svg&quot;,&quot;onClick&quot;:[{&quot;call&quot;:&quot;clickToDeeplink&quot;,&quot;args&quot;:{&quot;intentName&quot;:&quot;Settings&quot;,&quot;bundleName&quot;:&quot;com.huawei.hmos.settings&quot;,&quot;abilityName&quot;:&quot;com.huawei.hmos.settings.MainAbility&quot;,&quot;uri&quot;:&quot;storage_settings&quot;}}]}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-9f60f162-00074-000-dsl-5</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-title-content-action&quot;,&quot;variant&quot;:&quot;title-action&quot;},[&quot;title&quot;,&quot;action&quot;]]
+[&quot;title&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;存储空间&quot;,&quot;fontSize&quot;:12}]
+[&quot;action&quot;,&quot;PillButton&quot;,{&quot;label&quot;:&quot;存储设置&quot;,&quot;icon&quot;:&quot;resources/base/media/externaldrive_fill.svg&quot;,&quot;onClick&quot;:[{&quot;call&quot;:&quot;clickToDeeplink&quot;,&quot;args&quot;:{&quot;intentName&quot;:&quot;Settings&quot;,&quot;bundleName&quot;:&quot;com.huawei.hmos.settings&quot;,&quot;abilityName&quot;:&quot;com.huawei.hmos.settings.MainAbility&quot;,&quot;uri&quot;:&quot;storage_settings&quot;}}]}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-9f60f162-00074-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;手机存储空间与主要占用情况（当前 dataModelSchema 未提供任何存储字段）&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;ProgressCircleSingle&quot;,&quot;InfoBlock&quot;]},{&quot;requirement&quot;:&quot;打开系统设置中的存储空间页查看存储详情&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.open.settings.storage&quot;,&quot;componentHints&quot;:[&quot;PillButton&quot;,&quot;CardButton&quot;]}],&quot;layoutHints&quot;:[&quot;S-title-content-action&quot;,&quot;S-content-dual-action&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.open.settings.storage&quot;,&quot;assetId&quot;:&quot;asset.externaldrive_fill&quot;,&quot;reason&quot;:&quot;外置存储设备实心图标，语义匹配存储空间设置入口&quot;}],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;唯一素材已分配给动作按钮，标题无剩余匹配素材&quot;}}}}</pre><h4>Genui-9f60f162-00074-000-plan-4</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;打开系统设置中的存储空间页查看存储详情&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.open.settings.storage&quot;,&quot;componentHints&quot;:[&quot;PillButton&quot;,&quot;CardButton&quot;]}],&quot;layoutHints&quot;:[&quot;S-title-content-action&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.open.settings.storage&quot;,&quot;assetId&quot;:&quot;asset.externaldrive_fill&quot;,&quot;reason&quot;:&quot;外置存储设备图标与存储空间设置语义匹配&quot;}],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;素材已分配给动作，标题无独立匹配图标&quot;}}}}</pre><h4>Genui-9f60f162-00074-000-theme-3</h4><pre>{&quot;themeId&quot;:&quot;photo-ux-metal-gear-square&quot;,&quot;preferences&quot;:[]}</pre><h4>Genui-9f60f162-00074-000-theme-6</h4><pre>{&quot;themeId&quot;:&quot;gradient-blue&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版如实处理缺失且保留可用入口，优于伪造数字；现有 success 预期需与产品确认降级/补参语义。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-9f60f162-00074-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-9f60f162-00074-000.case.json</p>
+<h2 id="case4">4 元旦倒计时</h2><p>业务编号：Genui-a06b66c9-00128-000；版本：1。</p>
+<h3>设计理由</h3><p>相对时间需求已经在微服务入参中明确目标日期，检验参数和展示一致性。</p><h3>需要检测的问题</h3><p>目标2027-01-01、天数绑定、单位；不把历史请求按运行当日重新解释。</p>
+<h3>固定输入了什么</h3><p>创建一张明年元旦的倒计时桌面卡片</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2027-01-01&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2027-01-01&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [
+      {
+        &quot;arguments&quot;: {
+          &quot;targetDate&quot;: &quot;2027-01-01&quot;
+        },
+        &quot;candidateOutputFields&quot;: [
+          &quot;/countdownDays&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+      }
+    ],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;距离元旦还有多少天&quot;,
+    &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+    &quot;romVersion&quot;: &quot;HOP-AL10 7.0.0.109&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;元旦倒计时&quot;,
+    &quot;uid&quot;: &quot;Genui-a06b66c9-00128-000&quot;,
+    &quot;userQuery&quot;: &quot;创建一张明年元旦的倒计时桌面卡片&quot;
+  },
+  &quot;description&quot;: &quot;距离元旦还有多少天&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;ohos&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.303&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261019073847412&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;HOP-AL10 7.0.0.109&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;元旦倒计时&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;创建一张明年元旦的倒计时桌面卡片&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>本夹具目标日期固定2027-01-01，倒计时使用提供的数据绑定并带天单位；不按评测运行当天重新解释明年。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-a06b66c9-00128-000-dsl-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-a06b66c9-00128-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-a06b66c9-00128-000-theme-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-a06b66c9-00128-000-dsl-2</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-center&quot;},[&quot;content&quot;]]
+[&quot;content&quot;,&quot;DataDisplay&quot;,{&quot;label&quot;:&quot;元旦倒计时&quot;,&quot;value&quot;:{&quot;path&quot;:&quot;/data/countdown/countdownDays&quot;},&quot;unit&quot;:&quot;天&quot;}]
+[&quot;/data/countdown/countdownDays&quot;,30]
+```</pre><h4>Genui-a06b66c9-00128-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;距离明年元旦的天数，数值后需追加“天”&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/countdown/countdownDays&quot;,&quot;componentHints&quot;:[&quot;EmphasizedData&quot;,&quot;DataDisplay&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;目标日期为明年元旦（1月1日）&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;明年元旦&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;,&quot;EmphasisText&quot;,&quot;DataDisplay&quot;]}],&quot;layoutHints&quot;:[&quot;S-center&quot;,&quot;S-title-content&quot;]}}</pre><h4>Genui-a06b66c9-00128-000-theme-3</h4><pre>{&quot;themeId&quot;:&quot;photo-ux-birds-countdown-square&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>同一固定入参下日期与数值含义正确。不能用此例证明上游 Agent 每年理解明年都正确。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-a06b66c9-00128-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-a06b66c9-00128-000.case.json</p>
+<h2 id="case5">5 图片密码信息</h2><p>业务编号：Genui-a9dc7a70-00404-000；版本：1。</p>
+<h3>设计理由</h3><p>数值包含前导零，且必须有对象和类型归属，容易被格式化或丢标签。</p><h3>需要检测的问题</h3><p>00000000 前导零、永久类型、对象名称与数值关联；不测试OCR。</p>
+<h3>固定输入了什么</h3><p>创建一张桌面卡片，展示图片中的密码信息。本轮卡片静态内容（用作展示的外部事实）：图片显示操作成功，密码为 00000000，类型为永久。</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;密码卡片&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;密码卡片&quot;,
+    &quot;uid&quot;: &quot;Genui-a9dc7a70-00404-000&quot;,
+    &quot;userQuery&quot;: &quot;创建一张桌面卡片，展示图片中的密码信息。本轮卡片静态内容（用作展示的外部事实）：图片显示操作成功，密码为 00000000，类型为永久。&quot;
+  },
+  &quot;description&quot;: &quot;密码卡片&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;CMS-AL20&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261031135327827&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;CMS-AL20 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;密码卡片&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;创建一张桌面卡片，展示图片中的密码信息。本轮卡片静态内容（用作展示的外部事实）：图片显示操作成功，密码为 00000000，类型为永久。&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;创建一张桌面卡片，展示图片中的密码信息。本轮卡片静态内容（用作展示的外部事实）：图片显示操作成功，密码为 00000000，类型为永久。&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>密码示例00000000的前导零和永久类型不变；内容归属于密码信息对象，不虚构其他密码或类型。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-a9dc7a70-00404-000-dsl-3</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_CORE_MISSING: 组 object 缺少对象名称 &#x27;密码信息&#x27;；名称必须在本对象内可见，不能只保留无归属数值。</td></tr>
+<tr><td>Genui-a9dc7a70-00404-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-a9dc7a70-00404-000-plan-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-a9dc7a70-00404-000-repair-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-a9dc7a70-00404-000-theme-5</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-a9dc7a70-00404-000-dsl-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;操作成功&quot;}]
+[&quot;body&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;00000000&quot;,&quot;secondaryText&quot;:&quot;永久密码&quot;}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-a9dc7a70-00404-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;selectionNotes&quot;:[&quot;单一主体：密码信息，采用EmphasisText突出密码读数，状态与类型作辅助说明&quot;,&quot;密码为纯数字串，需完整保留八位，不改写数值&quot;,&quot;操作成功与类型永久为从属说明，放secondaryText与bottomText&quot;],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;theme&quot;,&quot;requirement&quot;:&quot;整卡共同主题：密码信息&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;密码信息&quot;,&quot;sourceTexts&quot;:[&quot;图片显示操作成功，密码为 00000000，类型为永久。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;password&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;密码&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;value&quot;,&quot;requirement&quot;:&quot;密码为 00000000&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;00000000&quot;,&quot;sourceTexts&quot;:[&quot;图片显示操作成功，密码为 00000000，类型为永久。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;},{&quot;id&quot;:&quot;status&quot;,&quot;requirement&quot;:&quot;操作成功&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;操作成功&quot;,&quot;sourceTexts&quot;:[&quot;图片显示操作成功，密码为 00000000，类型为永久。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;type&quot;,&quot;requirement&quot;:&quot;类型为永久&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;类型：永久&quot;,&quot;sourceTexts&quot;:[&quot;图片显示操作成功，密码为 00000000，类型为永久。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;detail&quot;}]}],&quot;omittedContents&quot;:[]}}</pre><h4>Genui-a9dc7a70-00404-000-plan-2</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;selectionNotes&quot;:[&quot;改用TextList承载密码信息对象：对象名作primaryText，密码数值与类型作secondaryText&quot;,&quot;密码数值较长，放在副文本整行可完整显示，避免右侧窄栏截断&quot;,&quot;保留操作成功主题作为标题&quot;],&quot;presentationStyle&quot;:&quot;records&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;shared&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;展示操作成功这一结果&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;操作成功&quot;,&quot;sourceTexts&quot;:[&quot;图片显示操作成功&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;password_info&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;密码信息&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;password&quot;,&quot;requirement&quot;:&quot;展示密码数值00000000&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;text&quot;:&quot;密码信息&quot;,&quot;sourceTexts&quot;:[&quot;密码为 00000000&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;primaryText&quot;},{&quot;id&quot;:&quot;detail&quot;,&quot;requirement&quot;:&quot;展示密码为00000000且类型为永久&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;text&quot;:&quot;00000000 · 永久&quot;,&quot;sourceTexts&quot;:[&quot;密码为 00000000&quot;,&quot;类型为永久&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;secondaryText&quot;}]}],&quot;omittedContents&quot;:[]}}</pre><h4>Genui-a9dc7a70-00404-000-repair-4</h4><pre>[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;操作成功&quot;}]
+[&quot;body&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;密码信息 00000000&quot;,&quot;secondaryText&quot;:&quot;永久密码&quot;}]
+[&quot;/state/ready&quot;,true]</pre><h4>Genui-a9dc7a70-00404-000-theme-5</h4><pre>{&quot;themeId&quot;:&quot;gradient-purple&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版完整保留信息并可读；不能只显示裸数字，也不能虚构更多密码。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-a9dc7a70-00404-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-a9dc7a70-00404-000.case.json</p>
+<h2 id="case6">6 预检拒绝请求</h2><p>业务编号：Genui-ab6df139-00039-000；版本：1。</p>
+<h3>设计理由</h3><p>预检拒绝也是业务结果，不能将所有拒绝都算生成失败。</p><h3>需要检测的问题</h3><p>当前能力过滤和拒绝原因是否符合预期；拒绝后是否停止模型调用。</p>
+<h3>固定输入了什么</h3><p>生成一个2x4规格的鸿蒙桌面卡片，显示距离10月3日出发去石家庄看妈妈还有几天倒计时、当天石家庄的温度范围、下雨概率和空气质量，点击卡片打开拨号界面并带上妈妈的号码1388888888</p>
+<pre>{
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2026-10-03&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    },
+    {
+      &quot;arguments&quot;: {
+        &quot;prefectureName&quot;: &quot;石家庄市&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/airQuality&quot;,
+        &quot;/current/condition&quot;,
+        &quot;/current/temperatureText&quot;,
+        &quot;/daily/0/rainProbabilityPercent&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;intentName&quot;: &quot;CallPhone&quot;,
+          &quot;params&quot;: {
+            &quot;phoneNumber&quot;: &quot;1388888888&quot;
+          }
+        },
+        &quot;call&quot;: &quot;clickToApi&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+    }
+  ],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.ic_calender&quot;,
+    &quot;asset.ic_weather_monochrome&quot;,
+    &quot;asset.phone_fill&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.ic_calender&quot;,
+    &quot;asset.ic_weather_monochrome&quot;,
+    &quot;asset.phone_fill&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;targetDate&quot;: &quot;2026-10-03&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/countdownDays&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+    },
+    {
+      &quot;arguments&quot;: {
+        &quot;prefectureName&quot;: &quot;石家庄市&quot;
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/airQuality&quot;,
+        &quot;/current/condition&quot;,
+        &quot;/current/temperatureText&quot;,
+        &quot;/daily/0/rainProbabilityPercent&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;intentName&quot;: &quot;CallPhone&quot;,
+          &quot;params&quot;: {
+            &quot;phoneNumber&quot;: &quot;1388888888&quot;
+          }
+        },
+        &quot;call&quot;: &quot;clickToApi&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+    }
+  ],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.ic_calender&quot;,
+      &quot;asset.ic_weather_monochrome&quot;,
+      &quot;asset.phone_fill&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [
+      {
+        &quot;arguments&quot;: {
+          &quot;targetDate&quot;: &quot;2026-10-03&quot;
+        },
+        &quot;candidateOutputFields&quot;: [
+          &quot;/countdownDays&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;GetCountdownDays&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/countdown&quot;
+      },
+      {
+        &quot;arguments&quot;: {
+          &quot;prefectureName&quot;: &quot;石家庄市&quot;
+        },
+        &quot;candidateOutputFields&quot;: [
+          &quot;/current/airQuality&quot;,
+          &quot;/current/condition&quot;,
+          &quot;/current/temperatureText&quot;,
+          &quot;/daily/0/rainProbabilityPercent&quot;,
+          &quot;/daily/0/temperatureRangeText&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+      }
+    ],
+    &quot;candidateEventCandidates&quot;: [
+      {
+        &quot;action&quot;: {
+          &quot;args&quot;: {
+            &quot;intentName&quot;: &quot;CallPhone&quot;,
+            &quot;params&quot;: {
+              &quot;phoneNumber&quot;: &quot;1388888888&quot;
+            }
+          },
+          &quot;call&quot;: &quot;clickToApi&quot;
+        },
+        &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+      }
+    ],
+    &quot;description&quot;: &quot;石家庄出发倒计时、目的地天气与空气质量，点击拨号。&quot;,
+    &quot;size&quot;: &quot;2x4&quot;,
+    &quot;title&quot;: &quot;旅途倒计时&quot;,
+    &quot;uid&quot;: &quot;Genui-ab6df139-00039-000&quot;,
+    &quot;userQuery&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示距离10月3日出发去石家庄看妈妈还有几天倒计时、当天石家庄的温度范围、下雨概率和空气质量，点击卡片打开拨号界面并带上妈妈的号码1388888888&quot;
+  },
+  &quot;description&quot;: &quot;石家庄出发倒计时、目的地天气与空气质量，点击拨号。&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;SGT-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.9.9.300&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20260828000000000&quot;
+  },
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;000&quot;,
+    &quot;isNew&quot;: true,
+    &quot;sessionId&quot;: &quot;test-sessionid&quot;
+  },
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;title&quot;: &quot;旅途倒计时&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {
+      &quot;userId&quot;: &quot;&quot;
+    }
+  },
+  &quot;userQuery&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示距离10月3日出发去石家庄看妈妈还有几天倒计时、当天石家庄的温度范围、下雨概率和空气质量，点击卡片打开拨号界面并带上妈妈的号码1388888888&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示距离10月3日出发去石家庄看妈妈还有几天倒计时、当天石家庄的温度范围、下雨概率和空气质量，点击卡片打开拨号界面并带上妈妈的号码1388888888&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：unsupported。服务终态符合不等于业务通过。</p><ul>
+<li>按请求说明验证拒绝原因，不伪造交付成功</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>此前51项批次没有本业务的模型阶段结果；不能把未执行算作通过。</p>
+<h3>如何证明迭代改善或回退</h3><p>需先补齐能力环境及预期错误码。明确预期拒绝后，正确拒绝才可计通过；当前阻塞。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>原采集缺少有效能力快照，需明确当前环境下的预检预期后启用</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-ab6df139-00039-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-ab6df139-00039-000.case.json</p>
+<h2 id="case7">7 结婚吉日日历</h2><p>业务编号：Genui-b71e5073-00292-000；版本：1。</p>
+<h3>设计理由</h3><p>需求要求真实月份吉日，但没有可靠日期事实，能暴露虚构和占位式完成。</p><h3>需要检测的问题</h3><p>具体日期来源、缺失信息处理、是否将详见日历工具当作已完成完整日历。</p>
+<h3>固定输入了什么</h3><p>制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.emoji_calendar2&quot;,
+    &quot;asset.ic_calender&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.emoji_calendar2&quot;,
+    &quot;asset.ic_calender&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.emoji_calendar2&quot;,
+      &quot;asset.ic_calender&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;2027年适合结婚的黄道吉日一览&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;2027结婚吉日&quot;,
+    &quot;uid&quot;: &quot;Genui-b71e5073-00292-000&quot;,
+    &quot;userQuery&quot;: &quot;制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日&quot;
+  },
+  &quot;description&quot;: &quot;2027年适合结婚的黄道吉日一览&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;HLS-AL00&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261029000902992&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;HLS-AL00 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;2027结婚吉日&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>输入没有可靠的各月份吉日数据，不得编造日期；必须识别信息不足。只有标题或详见工具占位文案不能判为完整完成吉日日历需求。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-b71e5073-00292-000-dsl-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-b71e5073-00292-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-b71e5073-00292-000-static_review-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-b71e5073-00292-000-theme-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-b71e5073-00292-000-dsl-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;2027年结婚吉日日历&quot;}]
+[&quot;body&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;各月份吉日详见日历工具&quot;}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-b71e5073-00292-000-plan-1</h4><pre>{&quot;name&quot;:&quot;report_missing_data&quot;,&quot;arguments&quot;:{&quot;requirements&quot;:[{&quot;description&quot;:&quot;2027年各月份适合结婚的黄道吉日具体日期清单&quot;,&quot;sourceQuote&quot;:&quot;展示2027年各月份适合结婚的黄道吉日&quot;}]}}</pre><h4>Genui-b71e5073-00292-000-static_review-2</h4><pre>{&quot;decision&quot;:&quot;correct&quot;,&quot;sourceFidelity&quot;:&quot;needs_correction&quot;,&quot;findings&quot;:[{&quot;sourceText&quot;:&quot;展示2027年各月份适合结婚的黄道吉日&quot;,&quot;factIndexes&quot;:[1],&quot;issue&quot;:&quot;核心内容被替换为“各月份吉日详见日历工具”，未展示任何月份的吉日信息，且“详见日历工具”是原文没有的编造指引，用户要求的各月份吉日结论未落实。&quot;},{&quot;sourceText&quot;:&quot;制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日&quot;,&quot;factIndexes&quot;:[],&quot;issue&quot;:&quot;本轮未提供任何具体吉日静态事实，用户明确需要按月份读取2027年结婚吉日数据，当前输入不足以生成内容。&quot;}],&quot;correctedPlan&quot;:{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;无准确匹配的日历语义素材，省略标题图标。&quot;}},&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;selectionNotes&quot;:[&quot;用户要求2027年各月份结婚吉日，但本轮未提供任何具体吉日静态事实。&quot;,&quot;静态路线不能编造吉日或“详见日历工具”等指引，故仅保留有来源的整卡主题，正文不虚构月份与日期。&quot;],&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;2027年各月份具体结婚黄道吉日列表：本轮未提供任何日期事实，无法静态展示，需动态数据补齐。&quot;,&quot;factRefs&quot;:[]}],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title_text&quot;,&quot;requirement&quot;:&quot;整卡共同主题：2027年结婚吉日日历&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;2027年结婚吉日日历&quot;,&quot;sourceTexts&quot;:[&quot;制作一个2027年适合结婚的吉日日历卡片，展示2027年各月份适合结婚的黄道吉日&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;content&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;main_text&quot;,&quot;requirement&quot;:&quot;说明展示范围：2027年各月份适合结婚的黄道吉日&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;2027年各月份适合结婚的黄道吉日&quot;,&quot;sourceTexts&quot;:[&quot;展示2027年各月份适合结婚的黄道吉日&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]}]}}}</pre><h4>Genui-b71e5073-00292-000-theme-4</h4><pre>{&quot;themeId&quot;:&quot;gradient-warm&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>如实说明缺失优于编造；仅标题和占位说明不能算完成。现有 success 终态不是完整金标，需确认应补参还是降级。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-b71e5073-00292-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-b71e5073-00292-000.case.json</p>
+<h2 id="case8">8 天气耳机与歌单</h2><p>业务编号：Genui-be3b399d-00038-000；版本：1。</p>
+<h3>设计理由</h3><p>宽卡片包含多种动态数据及一个动作，易出现数据写入却不可见。</p><h3>需要检测的问题</h3><p>风力、降水概率、连接、电量及状态、歌单动作全部可追溯；核实连接与充电描述的映射。</p>
+<h3>固定输入了什么</h3><p>生成一个2x4规格的鸿蒙桌面卡片，显示今天的风力等级和降水概率，耳机是否连接、耳机仓的电量，耳机仓是否连接，并且点击可以打开歌单</p>
+<pre>{
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {},
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/condition&quot;,
+        &quot;/current/temperatureText&quot;,
+        &quot;/current/windLevel&quot;,
+        &quot;/daily/0/condition&quot;,
+        &quot;/daily/0/date&quot;,
+        &quot;/daily/0/rainProbabilityPercent&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;,
+        &quot;/daily/0/weekday&quot;,
+        &quot;/location/cityCode&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    },
+    {
+      &quot;arguments&quot;: {},
+      &quot;candidateOutputFields&quot;: [
+        &quot;/batteryLevel&quot;,
+        &quot;/chargingStatusDesc&quot;,
+        &quot;/earphoneName&quot;,
+        &quot;/isConnected&quot;,
+        &quot;/leftBatteryLevel&quot;,
+        &quot;/leftChargingStatusDesc&quot;,
+        &quot;/rightBatteryLevel&quot;,
+        &quot;/rightChargingStatusDesc&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetEarphoneInfo&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/earphone&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;abilityName&quot;: &quot;&quot;,
+          &quot;bundleName&quot;: &quot;&quot;,
+          &quot;intentName&quot;: &quot;Music&quot;,
+          &quot;uri&quot;: &quot;hwmusic://com.huawei.hmsapp.music/showMusicList?code=a001&amp;type=4&quot;
+        },
+        &quot;call&quot;: &quot;clickToDeeplink&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.open.music.daily&quot;
+    }
+  ],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.icon_weather_wind&quot;,
+    &quot;asset.drop_1&quot;,
+    &quot;asset.icon_earphone&quot;,
+    &quot;asset.emoji_earbud_case_black&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.icon_weather_wind&quot;,
+    &quot;asset.drop_1&quot;,
+    &quot;asset.icon_earphone&quot;,
+    &quot;asset.emoji_earbud_case_black&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {},
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/condition&quot;,
+        &quot;/current/temperatureText&quot;,
+        &quot;/current/windLevel&quot;,
+        &quot;/daily/0/condition&quot;,
+        &quot;/daily/0/date&quot;,
+        &quot;/daily/0/rainProbabilityPercent&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;,
+        &quot;/daily/0/weekday&quot;,
+        &quot;/location/cityCode&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    },
+    {
+      &quot;arguments&quot;: {},
+      &quot;candidateOutputFields&quot;: [
+        &quot;/batteryLevel&quot;,
+        &quot;/chargingStatusDesc&quot;,
+        &quot;/earphoneName&quot;,
+        &quot;/isConnected&quot;,
+        &quot;/leftBatteryLevel&quot;,
+        &quot;/leftChargingStatusDesc&quot;,
+        &quot;/rightBatteryLevel&quot;,
+        &quot;/rightChargingStatusDesc&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;GetEarphoneInfo&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/earphone&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;abilityName&quot;: &quot;&quot;,
+          &quot;bundleName&quot;: &quot;&quot;,
+          &quot;intentName&quot;: &quot;Music&quot;,
+          &quot;uri&quot;: &quot;hwmusic://com.huawei.hmsapp.music/showMusicList?code=a001&amp;type=4&quot;
+        },
+        &quot;call&quot;: &quot;clickToDeeplink&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.open.music.daily&quot;
+    }
+  ],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.omega_w_0823.hmservice&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.icon_weather_wind&quot;,
+      &quot;asset.drop_1&quot;,
+      &quot;asset.icon_earphone&quot;,
+      &quot;asset.emoji_earbud_case_black&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [
+      {
+        &quot;arguments&quot;: {},
+        &quot;candidateOutputFields&quot;: [
+          &quot;/current/condition&quot;,
+          &quot;/current/temperatureText&quot;,
+          &quot;/current/windLevel&quot;,
+          &quot;/daily/0/condition&quot;,
+          &quot;/daily/0/date&quot;,
+          &quot;/daily/0/rainProbabilityPercent&quot;,
+          &quot;/daily/0/temperatureRangeText&quot;,
+          &quot;/daily/0/weekday&quot;,
+          &quot;/location/cityCode&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+      },
+      {
+        &quot;arguments&quot;: {},
+        &quot;candidateOutputFields&quot;: [
+          &quot;/batteryLevel&quot;,
+          &quot;/chargingStatusDesc&quot;,
+          &quot;/earphoneName&quot;,
+          &quot;/isConnected&quot;,
+          &quot;/leftBatteryLevel&quot;,
+          &quot;/leftChargingStatusDesc&quot;,
+          &quot;/rightBatteryLevel&quot;,
+          &quot;/rightChargingStatusDesc&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;GetEarphoneInfo&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/earphone&quot;
+      }
+    ],
+    &quot;candidateEventCandidates&quot;: [
+      {
+        &quot;action&quot;: {
+          &quot;args&quot;: {
+            &quot;abilityName&quot;: &quot;&quot;,
+            &quot;bundleName&quot;: &quot;&quot;,
+            &quot;intentName&quot;: &quot;Music&quot;,
+            &quot;uri&quot;: &quot;hwmusic://com.huawei.hmsapp.music/showMusicList?code=a001&amp;type=4&quot;
+          },
+          &quot;call&quot;: &quot;clickToDeeplink&quot;
+        },
+        &quot;capabilityId&quot;: &quot;event.open.music.daily&quot;
+      }
+    ],
+    &quot;description&quot;: &quot;显示风力等级、降水概率及耳机连接与电量，点击打开歌单。&quot;,
+    &quot;size&quot;: &quot;2x4&quot;,
+    &quot;title&quot;: &quot;风况·耳机&quot;,
+    &quot;uid&quot;: &quot;Genui-be3b399d-00038-000&quot;,
+    &quot;userQuery&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示今天的风力等级和降水概率，耳机是否连接、耳机仓的电量，耳机仓是否连接，并且点击可以打开歌单&quot;
+  },
+  &quot;description&quot;: &quot;显示风力等级、降水概率及耳机连接与电量，点击打开歌单。&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;SGT-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.9.9.300&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20260828000000000&quot;
+  },
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;000&quot;,
+    &quot;isNew&quot;: true,
+    &quot;sessionId&quot;: &quot;test-sessionid&quot;
+  },
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;title&quot;: &quot;风况·耳机&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {
+      &quot;userId&quot;: &quot;&quot;
+    }
+  },
+  &quot;userQuery&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示今天的风力等级和降水概率，耳机是否连接、耳机仓的电量，耳机仓是否连接，并且点击可以打开歌单&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;生成一个2x4规格的鸿蒙桌面卡片，显示今天的风力等级和降水概率，耳机是否连接、耳机仓的电量，耳机仓是否连接，并且点击可以打开歌单&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>保留风力、降水概率、耳机连接、电量和计划要求的状态及打开歌单动作；需求连接状态与充电描述字段存在歧义，应核实而非默认为同义。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-be3b399d-00038-000-dsl-2</td><td>failed</td><td>pending</td><td>Plan fact is missing from visible DSL: 展示耳机仓电量 (/data/earphone/batteryLevel).；Plan fact is missing from visible DSL: 展示耳机仓是否连接 (/data/earphone/chargingStatusDesc).</td></tr>
+<tr><td>Genui-be3b399d-00038-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-be3b399d-00038-000-plan-5</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-be3b399d-00038-000-plan-6</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-be3b399d-00038-000-repair-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-be3b399d-00038-000-theme-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-be3b399d-00038-000-dsl-2</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;W-four-slots&quot;},[&quot;top_left&quot;,&quot;top_right&quot;,&quot;bottom_left&quot;,&quot;bottom_right&quot;]]
+[&quot;top_left&quot;,&quot;InfoBlock&quot;,{&quot;variant&quot;:&quot;slot&quot;,&quot;primaryText&quot;:&quot;{{ ${/data/weather/current/windLevel} + &#x27;级&#x27; }}&quot;,&quot;secondaryText&quot;:&quot;风力等级&quot;,&quot;visual&quot;:{&quot;type&quot;:&quot;icon&quot;,&quot;icon&quot;:&quot;resources/base/media/icon_weather_wind.svg&quot;}}]
+[&quot;top_right&quot;,&quot;InfoBlock&quot;,{&quot;variant&quot;:&quot;slot&quot;,&quot;primaryText&quot;:&quot;{{ ${/data/weather/daily/0/rainProbabilityPercent} + &#x27;%&#x27; }}&quot;,&quot;secondaryText&quot;:&quot;降雨概率&quot;,&quot;visual&quot;:{&quot;type&quot;:&quot;icon&quot;,&quot;icon&quot;:&quot;resources/base/media/drop_1.svg&quot;}}]
+[&quot;bottom_left&quot;,&quot;InfoBlock&quot;,{&quot;variant&quot;:&quot;slot&quot;,&quot;primaryText&quot;:&quot;{{ ${/data/earphone/isConnected} ? &#x27;已连接&#x27; : &#x27;未连接&#x27; }}&quot;,&quot;secondaryText&quot;:&quot;耳机连接状态&quot;,&quot;visual&quot;:{&quot;type&quot;:&quot;icon&quot;,&quot;icon&quot;:&quot;resources/base/media/icon_earphone.svg&quot;}}]
+[&quot;bottom_right&quot;,&quot;CardButton&quot;,{&quot;label&quot;:&quot;打开歌单&quot;,&quot;icon&quot;:&quot;resources/base/media/icon_earphone.svg&quot;,&quot;onClick&quot;:[{&quot;call&quot;:&quot;clickToDeeplink&quot;,&quot;args&quot;:{&quot;intentName&quot;:&quot;Music&quot;,&quot;bundleName&quot;:&quot;&quot;,&quot;abilityName&quot;:&quot;&quot;,&quot;uri&quot;:&quot;hwmusic://com.huawei.hmsapp.music/showMusicList?code=a001&amp;type=4&quot;}}]}]
+[&quot;/data/weather/current/windLevel&quot;,2]
+[&quot;/data/weather/daily/0/rainProbabilityPercent&quot;,20]
+[&quot;/data/earphone/isConnected&quot;,true]
+[&quot;/data/earphone/batteryLevel&quot;,80]
+[&quot;/data/earphone/chargingStatusDesc&quot;,&quot;未充电&quot;]
+```</pre><h4>Genui-be3b399d-00038-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;今天的风力等级&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/windLevel&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;,&quot;TextBlock&quot;]},{&quot;requirement&quot;:&quot;今天的降水概率&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/daily/0/rainProbabilityPercent&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;,&quot;TextBlock&quot;]},{&quot;requirement&quot;:&quot;耳机是否连接&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/isConnected&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;EmphasisText&quot;,&quot;SecondaryBody&quot;]},{&quot;requirement&quot;:&quot;耳机仓电量&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/batteryLevel&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;ProgressCircleSingle&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;耳机仓是否连接&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/earphoneName&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;点击打开每日30首歌单&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;componentHints&quot;:[&quot;CardButton&quot;,&quot;PillButton&quot;]}],&quot;layoutHints&quot;:[&quot;W-content-side-slots&quot;,&quot;W-top-bottom&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;assetId&quot;:null,&quot;reason&quot;:&quot;候选素材均为天气或耳机图标，无音乐歌单语义匹配图标&quot;}],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;无独立标题，且候选素材无匹配标题语义&quot;}}}}</pre><h4>Genui-be3b399d-00038-000-plan-5</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;当前风力等级&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/windLevel&quot;,&quot;componentHints&quot;:[&quot;EmphasizedData&quot;,&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;]},{&quot;requirement&quot;:&quot;白天降雨概率&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/daily/0/rainProbabilityPercent&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;耳机是否连接&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/isConnected&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;EmphasisText&quot;,&quot;SecondaryBody&quot;]},{&quot;requirement&quot;:&quot;耳机仓电量&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/batteryLevel&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;EmphasisText&quot;,&quot;SecondaryBody&quot;]},{&quot;requirement&quot;:&quot;耳机仓是否连接&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/chargingStatusDesc&quot;,&quot;componentHints&quot;:[&quot;InfoBlock&quot;,&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;点击打开每日30首歌单&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;componentHints&quot;:[&quot;CardButton&quot;,&quot;PillButton&quot;]}],&quot;layoutHints&quot;:[&quot;W-content-side-slots&quot;,&quot;W-four-slots&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;assetId&quot;:null,&quot;reason&quot;:&quot;素材候选中无音乐或歌单图标，使用固定回退图标&quot;}],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;无独立标题或匹配标题素材&quot;}}}}</pre><h4>Genui-be3b399d-00038-000-plan-6</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;展示今日风力等级数值，显示为风力n级&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/windLevel&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;展示今日降雨概率数值并带百分号&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/daily/0/rainProbabilityPercent&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;展示耳机当前是否连接的布尔状态&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/isConnected&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;展示耳机仓当前电量百分比数值并带百分号&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/batteryLevel&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;展示耳机仓当前是否连接的充电状态描述&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/earphone/chargingStatusDesc&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;点击打开每日歌单&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;componentHints&quot;:[&quot;PillButton&quot;,&quot;CardButton&quot;]}],&quot;layoutHints&quot;:[&quot;W-top-bottom&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.open.music.daily&quot;,&quot;assetId&quot;:null,&quot;reason&quot;:&quot;无匹配的歌曲与音乐歌单语义图标候选&quot;}],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;整卡无合适标题图标候选，且标题可不带图标&quot;}}}}</pre><h4>Genui-be3b399d-00038-000-repair-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;W-content-side-slots&quot;},[&quot;content&quot;,&quot;upper&quot;,&quot;lower&quot;]]
+[&quot;content_title&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;今日天气与耳机&quot;,&quot;fontSize&quot;:12}]
+[&quot;content_primary&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;{{ &#x27;风力 &#x27; + ${/data/weather/current/windLevel} + &#x27;级&#x27; }}&quot;,&quot;secondaryText&quot;:&quot;{{ &#x27;降雨概率 &#x27; + ${/data/weather/daily/0/rainProbabilityPercent} + &#x27;%&#x27; }}&quot;,&quot;fontSize&quot;:18}]
+[&quot;content_support&quot;,&quot;SecondaryBody&quot;,{&quot;items&quot;:[{&quot;label&quot;:&quot;耳机 &quot;,&quot;value&quot;:&quot;{{ ${/data/earphone/isConnected} ? &#x27;已连接&#x27; : &#x27;未连接&#x27; }}&quot;},{&quot;label&quot;:&quot;耳机仓 &quot;,&quot;value&quot;:{&quot;path&quot;:&quot;/data/earphone/chargingStatusDesc&quot;}}],&quot;separator&quot;:&quot; | &quot;,&quot;fontSize&quot;:14}]
+[&quot;content&quot;,&quot;Region&quot;,{&quot;variant&quot;:&quot;title-hero-support&quot;},[&quot;content_title&quot;,&quot;content_primary&quot;,&quot;content_support&quot;]]
+[&quot;upper&quot;,&quot;InfoBlock&quot;,{&quot;surfaceRole&quot;:&quot;panel&quot;,&quot;variant&quot;:&quot;slot&quot;,&quot;primaryText&quot;:&quot;{{ ${/data/earphone/batteryLevel} + &#x27;%&#x27; }}&quot;,&quot;secondaryText&quot;:&quot;耳机仓电量&quot;,&quot;visual&quot;:{&quot;type&quot;:&quot;icon&quot;,&quot;icon&quot;:&quot;resources/base/media/emoji_earbud_case_black.png&quot;}}]
+[&quot;lower&quot;,&quot;CardButton&quot;,{&quot;label&quot;:&quot;打开歌单&quot;,&quot;icon&quot;:&quot;resources/base/media/icon_earphone.svg&quot;,&quot;onClick&quot;:[{&quot;call&quot;:&quot;clickToDeeplink&quot;,&quot;args&quot;:{&quot;intentName&quot;:&quot;Music&quot;,&quot;bundleName&quot;:&quot;&quot;,&quot;abilityName&quot;:&quot;&quot;,&quot;uri&quot;:&quot;hwmusic://com.huawei.hmsapp.music/showMusicList?code=a001&amp;type=4&quot;}}]}]
+[&quot;/data/weather/current/windLevel&quot;,2]
+[&quot;/data/weather/daily/0/rainProbabilityPercent&quot;,20]
+[&quot;/data/earphone/isConnected&quot;,true]
+[&quot;/data/earphone/batteryLevel&quot;,80]
+[&quot;/data/earphone/chargingStatusDesc&quot;,&quot;未充电&quot;]
+```</pre><h4>Genui-be3b399d-00038-000-theme-4</h4><pre>{&quot;themeId&quot;:&quot;gradient-blue&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版覆盖全部必需信息且不混淆状态；减少漏项和跨区动作错误。字段歧义未裁定前不作胜负结论。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-be3b399d-00038-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-be3b399d-00038-000.case.json</p>
+<h2 id="case9">9 婚礼邀请函</h2><p>业务编号：Genui-c2b1111a-00373-000；版本：1。</p>
+<h3>设计理由</h3><p>人物、日期、地点、配色和素材共同构成邀请函，便于检验事实与设计要求兼顾。</p><h3>需要检测的问题</h3><p>姓名日期地点保真、红色喜庆、素材有效、容量取舍有依据。</p>
+<h3>固定输入了什么</h3><p>生成结婚邀请函卡片，红色喜庆风格。
+
+本轮卡片静态内容（用作展示的外部事实）：
+张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.heart_fill&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.heart_fill&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.heart_fill&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;张甲&amp;李乙乙婚礼邀请&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;结婚邀请函&quot;,
+    &quot;uid&quot;: &quot;Genui-c2b1111a-00373-000&quot;,
+    &quot;userQuery&quot;: &quot;生成结婚邀请函卡片，红色喜庆风格。\n\n本轮卡片静态内容（用作展示的外部事实）：\n张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;
+  },
+  &quot;description&quot;: &quot;张甲&amp;李乙乙婚礼邀请&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;HLS-AL00&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261030234222663&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;HLS-AL00 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;结婚邀请函&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;生成结婚邀请函卡片，红色喜庆风格。\n\n本轮卡片静态内容（用作展示的外部事实）：\n张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;生成结婚邀请函卡片，红色喜庆风格。\n\n本轮卡片静态内容（用作展示的外部事实）：\n张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>新人、日期、地点按输入保持；省略必须有计划授权；红色喜庆要求不可丢失，不虚构人物和时间地点。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-c2b1111a-00373-000-dsl-3</td><td>failed</td><td>pending</td><td>primary SingleLineTitle must use Plan-assigned icon &#x27;resources/base/media/heart_fill.svg&#x27;.</td></tr>
+<tr><td>Genui-c2b1111a-00373-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-c2b1111a-00373-000-plan-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-c2b1111a-00373-000-theme-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-c2b1111a-00373-000-dsl-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;婚礼邀请函&quot;,&quot;icon&quot;:&quot;asset.heart_fill&quot;}]
+[&quot;body&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:&quot;张甲先生与李乙乙女士&quot;,&quot;secondaryText&quot;:&quot;2026年11月16日&quot;,&quot;bottomText&quot;:&quot;示例测试区示例大酒店&quot;}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-c2b1111a-00373-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[],&quot;title&quot;:{&quot;assetId&quot;:&quot;asset.heart_fill&quot;,&quot;reason&quot;:&quot;婚礼喜庆主题与爱心图标语义匹配&quot;}},&quot;selectionNotes&quot;:[&quot;单一主体婚礼邀请，采用标题加核心结论的EmphasisText结构&quot;,&quot;保留农历、公历、星期与地点等必要限定，不删减&quot;,&quot;红色喜庆风格由后置主题处理，本阶段不输出颜色&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;warm&quot;,&quot;omittedContents&quot;:[],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;invite_title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;整卡主题为婚礼邀请&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;婚礼邀请&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;wedding&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;张甲先生与李乙乙女士&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;main&quot;,&quot;requirement&quot;:&quot;张甲先生与李乙乙女士举行婚礼&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;张甲先生与李乙乙女士举行婚礼&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;time&quot;,&quot;requirement&quot;:&quot;婚礼时间为农历十月初八，公历2026年11月16日星期一&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;农历十月初八（2026年11月16日，星期一）&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;detail&quot;},{&quot;id&quot;:&quot;place&quot;,&quot;requirement&quot;:&quot;婚礼地点为示例测试区示例大酒店&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;示例测试区示例大酒店&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;detail&quot;}]}]}}</pre><h4>Genui-c2b1111a-00373-000-plan-2</h4><pre>```json
+{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[],&quot;title&quot;:{&quot;assetId&quot;:null,&quot;reason&quot;:&quot;无适合标题的语义匹配素材，heart_fill为爱心图标不适用于婚礼邀请函标题&quot;}},&quot;selectionNotes&quot;:[&quot;改用rows结构：短标签加短值，每行可完整单行读取，避免长日期超出正文宽度&quot;,&quot;共同主题用SingleLineTitle标题“婚礼邀请”&quot;,&quot;新人姓名、日期、地点为核心，全部保留；日期拆为农历与公历两行以完整显示&quot;,&quot;用户要求红色喜庆风格，登记warm色系&quot;],&quot;presentationStyle&quot;:&quot;rows&quot;,&quot;paletteFamily&quot;:&quot;warm&quot;,&quot;omittedContents&quot;:[],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;topic&quot;,&quot;requirement&quot;:&quot;整卡共同主题&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;婚礼邀请&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八（公历2026年11月16日，星期一）在示例测试区示例大酒店举行婚礼。&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;couple&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;新人&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;names&quot;,&quot;requirement&quot;:&quot;显示新人双方姓名&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;新人&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;label&quot;},{&quot;id&quot;:&quot;names_value&quot;,&quot;requirement&quot;:&quot;显示新人双方姓名&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;张甲先生与李乙乙女士&quot;,&quot;sourceTexts&quot;:[&quot;张甲先生与李乙乙女士将于农历十月初八&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;}]},{&quot;id&quot;:&quot;date&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;日期&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;lunar&quot;,&quot;requirement&quot;:&quot;显示农历日期&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;农历&quot;,&quot;sourceTexts&quot;:[&quot;农历十月初八&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;label&quot;},{&quot;id&quot;:&quot;lunar_value&quot;,&quot;requirement&quot;:&quot;显示农历日期&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;十月初八&quot;,&quot;sourceTexts&quot;:[&quot;农历十月初八&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;},{&quot;id&quot;:&quot;gregorian&quot;,&quot;requirement&quot;:&quot;显示公历日期与星期&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;公历&quot;,&quot;sourceTexts&quot;:[&quot;公历2026年11月16日，星期一&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;label&quot;},{&quot;id&quot;:&quot;gregorian_value&quot;,&quot;requirement&quot;:&quot;显示公历日期与星期&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;2026年11月16日 星期一&quot;,&quot;sourceTexts&quot;:[&quot;公历2026年11月16日，星期一&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;}]},{&quot;id&quot;:&quot;venue&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;地点&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;place&quot;,&quot;requirement&quot;:&quot;显示婚礼地点&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;地点&quot;,&quot;sourceTexts&quot;:[&quot;在示例测试区示例大酒店举行婚礼&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;label&quot;},{&quot;id&quot;:&quot;place_value&quot;,&quot;requirement&quot;:&quot;显示婚礼地点&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineList&quot;],&quot;text&quot;:&quot;示例测试区示例大酒店&quot;,&quot;sourceTexts&quot;:[&quot;在示例测试区示例大酒店举行婚礼&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;value&quot;}]}]}}
+```</pre><h4>Genui-c2b1111a-00373-000-theme-4</h4><pre>{&quot;themeId&quot;:&quot;gradient-warm&quot;,&quot;preferences&quot;:[{&quot;property&quot;:&quot;paletteFamily&quot;,&quot;operator&quot;:&quot;prefer&quot;,&quot;value&quot;:&quot;red&quot;,&quot;evidence&quot;:&quot;红色喜庆风格&quot;}]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版内容更完整、合法且符合明确配色；允许不同合法布局，不要求复刻旧图。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-c2b1111a-00373-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-c2b1111a-00373-000.case.json</p>
+<h2 id="case10">10 天气家人关怀</h2><p>业务编号：Genui-c7c9796c-00301-000；版本：1。</p>
+<h3>设计理由</h3><p>天气与预警含义需有依据，同时联系人动作不能出错，主题还可能触发素材校验。</p><h3>需要检测的问题</h3><p>天气绑定、预警来源、联系人动作参数、实际前景素材与主题后完整产物。</p>
+<h3>固定输入了什么</h3><p>生成一个异常天气家人关怀提醒卡片，显示当前天气和温度变化，具备天气预警功能，有一个可以直接联系家人陈丙丙的电话按钮，电话号码13800138000</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;forecastDays&quot;: 3
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/temperatureText&quot;,
+        &quot;/current/condition&quot;,
+        &quot;/current/alertLevel&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;,
+        &quot;/daily/1/temperatureRangeText&quot;,
+        &quot;/daily/2/temperatureRangeText&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;intentName&quot;: &quot;CallPhone&quot;,
+          &quot;params&quot;: {
+            &quot;phoneNumber&quot;: &quot;13800138000&quot;
+          }
+        },
+        &quot;call&quot;: &quot;clickToApi&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+    }
+  ],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.ic_weather_monochrome&quot;,
+    &quot;asset.ic_warning_monochrome&quot;,
+    &quot;asset.phone_fill&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.ic_weather_monochrome&quot;,
+    &quot;asset.ic_warning_monochrome&quot;,
+    &quot;asset.phone_fill&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [
+    {
+      &quot;arguments&quot;: {
+        &quot;forecastDays&quot;: 3
+      },
+      &quot;candidateOutputFields&quot;: [
+        &quot;/current/temperatureText&quot;,
+        &quot;/current/condition&quot;,
+        &quot;/current/alertLevel&quot;,
+        &quot;/daily/0/temperatureRangeText&quot;,
+        &quot;/daily/1/temperatureRangeText&quot;,
+        &quot;/daily/2/temperatureRangeText&quot;
+      ],
+      &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+      &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+    }
+  ],
+  &quot;candidateEventCandidates&quot;: [
+    {
+      &quot;action&quot;: {
+        &quot;args&quot;: {
+          &quot;intentName&quot;: &quot;CallPhone&quot;,
+          &quot;params&quot;: {
+            &quot;phoneNumber&quot;: &quot;13800138000&quot;
+          }
+        },
+        &quot;call&quot;: &quot;clickToApi&quot;
+      },
+      &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+    }
+  ],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.ic_weather_monochrome&quot;,
+      &quot;asset.ic_warning_monochrome&quot;,
+      &quot;asset.phone_fill&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [
+      {
+        &quot;arguments&quot;: {
+          &quot;forecastDays&quot;: 3
+        },
+        &quot;candidateOutputFields&quot;: [
+          &quot;/current/temperatureText&quot;,
+          &quot;/current/condition&quot;,
+          &quot;/current/alertLevel&quot;,
+          &quot;/daily/0/temperatureRangeText&quot;,
+          &quot;/daily/1/temperatureRangeText&quot;,
+          &quot;/daily/2/temperatureRangeText&quot;
+        ],
+        &quot;capabilityId&quot;: &quot;ViewWeather&quot;,
+        &quot;writeResultTo&quot;: &quot;/data/weather&quot;
+      }
+    ],
+    &quot;candidateEventCandidates&quot;: [
+      {
+        &quot;action&quot;: {
+          &quot;args&quot;: {
+            &quot;intentName&quot;: &quot;CallPhone&quot;,
+            &quot;params&quot;: {
+              &quot;phoneNumber&quot;: &quot;13800138000&quot;
+            }
+          },
+          &quot;call&quot;: &quot;clickToApi&quot;
+        },
+        &quot;capabilityId&quot;: &quot;event.call.phone&quot;
+      }
+    ],
+    &quot;description&quot;: &quot;异常天气家人关怀&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;天气关怀&quot;,
+    &quot;uid&quot;: &quot;Genui-c7c9796c-00301-000&quot;,
+    &quot;userQuery&quot;: &quot;生成一个异常天气家人关怀提醒卡片，显示当前天气和温度变化，具备天气预警功能，有一个可以直接联系家人陈丙丙的电话按钮，电话号码13800138000&quot;
+  },
+  &quot;description&quot;: &quot;异常天气家人关怀&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;DPX-AL00&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.372&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261029025717640&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;DPX-AL00 6.0.0.115&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;天气关怀&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;生成一个异常天气家人关怀提醒卡片，显示当前天气和温度变化，具备天气预警功能，有一个可以直接联系家人陈丙丙的电话按钮，电话号码13800138000&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;生成一个异常天气家人关怀提醒卡片，显示当前天气和温度变化，具备天气预警功能，有一个可以直接联系家人陈丙丙的电话按钮，电话号码13800138000&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>天气与温度变化及预警按已提供能力表达；联系家人的动作参数保持输入值；不得虚构预警或改变联系人。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-c7c9796c-00301-000-dsl-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-c7c9796c-00301-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-c7c9796c-00301-000-theme-3</td><td>failed</td><td>pending</td><td>ValueError: Final gradient validation failed: [&#x27;EFFECTIVE_ASSET_NOT_ALLOWED: DSL references an asset path that is not in effective asset capabilities. [genui:2 /updateComponents/componentsById/title_icon/src]&#x27;]</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-c7c9796c-00301-000-dsl-2</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-title-primary-secondary-action&quot;},[&quot;title&quot;,&quot;primary&quot;,&quot;support&quot;,&quot;action&quot;]]
+[&quot;title&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;天气关怀&quot;,&quot;icon&quot;:&quot;resources/base/media/ic_weather_monochrome.svg&quot;,&quot;fontSize&quot;:12}]
+[&quot;primary&quot;,&quot;EmphasisText&quot;,{&quot;mainText&quot;:{&quot;path&quot;:&quot;/data/weather/current/temperatureText&quot;},&quot;secondaryText&quot;:{&quot;path&quot;:&quot;/data/weather/current/condition&quot;},&quot;fontSize&quot;:18}]
+[&quot;support&quot;,&quot;SecondaryBody&quot;,{&quot;items&quot;:[{&quot;label&quot;:&quot;预警 &quot;,&quot;value&quot;:{&quot;path&quot;:&quot;/data/weather/current/alertLevel&quot;}},{&quot;label&quot;:&quot;今日 &quot;,&quot;value&quot;:{&quot;path&quot;:&quot;/data/weather/daily/0/temperatureRangeText&quot;}}],&quot;columns&quot;:1,&quot;fontSize&quot;:12}]
+[&quot;action&quot;,&quot;PillButton&quot;,{&quot;label&quot;:&quot;联系陈丙丙&quot;,&quot;icon&quot;:&quot;resources/base/media/phone_fill.svg&quot;,&quot;onClick&quot;:[{&quot;call&quot;:&quot;clickToApi&quot;,&quot;args&quot;:{&quot;intentName&quot;:&quot;CallPhone&quot;,&quot;params&quot;:{&quot;phoneNumber&quot;:&quot;13800138000&quot;}}}]}]
+[&quot;/data/weather/current/temperatureText&quot;,&quot;29℃&quot;]
+[&quot;/data/weather/current/condition&quot;,&quot;多云&quot;]
+[&quot;/data/weather/current/alertLevel&quot;,&quot;大风蓝色预警&quot;]
+[&quot;/data/weather/daily/0/temperatureRangeText&quot;,&quot;25℃ / 32℃&quot;]
+```</pre><h4>Genui-c7c9796c-00301-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;当前天气现象&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/condition&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;,&quot;DataDisplay&quot;,&quot;InfoBlock&quot;]},{&quot;requirement&quot;:&quot;当前温度&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/temperatureText&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;,&quot;DataDisplay&quot;,&quot;InfoBlock&quot;]},{&quot;requirement&quot;:&quot;当前气象预警信息&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/current/alertLevel&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;EmphasisText&quot;]},{&quot;requirement&quot;:&quot;今日温度范围&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;dataId&quot;:&quot;/data/weather/daily/0/temperatureRangeText&quot;,&quot;componentHints&quot;:[&quot;SecondaryBody&quot;,&quot;InfoBlock&quot;]},{&quot;requirement&quot;:&quot;联系家人陈丙丙并拨打13800138000&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;actionId&quot;:&quot;event.call.phone&quot;,&quot;componentHints&quot;:[&quot;PillButton&quot;]}],&quot;layoutHints&quot;:[&quot;S-title-primary-secondary-action&quot;,&quot;S-title-content-action&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[{&quot;actionId&quot;:&quot;event.call.phone&quot;,&quot;assetId&quot;:&quot;asset.phone_fill&quot;,&quot;reason&quot;:&quot;电话实心图标与拨号动作语义匹配&quot;}],&quot;title&quot;:{&quot;assetId&quot;:&quot;asset.ic_warning_monochrome&quot;,&quot;reason&quot;:&quot;预警提醒卡片标题使用提示铃图标，天气云朵图标未被按钮占用但预警语义更贴合关怀提醒主题&quot;}}}}</pre><h4>Genui-c7c9796c-00301-000-theme-3</h4><pre>{&quot;themeId&quot;:&quot;gradient-blue&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版最终产物通过且动作正确。历史 Theme 上游非法素材不能直接归责主题模型。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-c7c9796c-00301-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-c7c9796c-00301-000.case.json</p>
+<h2 id="case11">11 一周食谱</h2><p>业务编号：Genui-d31408b7-00476-000；版本：1。</p>
+<h3>设计理由</h3><p>一周三餐和提醒远多于小卡片容量，可暴露非法压缩和隐瞒省略。</p><h3>需要检测的问题</h3><p>日期餐次归属、菜品不编造、容量选择、取舍说明；不评估营养医学合理性。</p>
+<h3>固定输入了什么</h3><p>把备忘录里的减脂食谱做成桌面卡片，显示一周三餐安排和关键提醒。本轮卡片静态内容（用作展示的外部事实）：📅 一周减脂食谱（周一至周日）
+
+周一：
+早餐：燕麦粥 + 水煮蛋 + 凉拌黄瓜
+午餐：糙米饭 + 清蒸鱼 + 清炒西兰花
+晚餐：杂粮粥 + 手撕包菜 + 素炒豆腐
+
+周二：
+早餐：全麦面包 + 脱脂牛奶 + 苹果
+午餐：红薯饭 + 炒鸡胸肉片 + 清炒菠菜
+晚餐：小米粥 + 清炒胡萝卜丝
+
+周三：
+早餐：玉米 + 西红柿炒鸡蛋
+午餐：荞麦馒头 + 凉拌海带丝
+晚餐：绿豆粥 + 清炒西葫芦
+
+周四：
+早餐：红豆薏仁粥 + 清炒油麦菜
+午餐：藜麦饭 + 香煎豆腐 + 白灼虾
+晚餐：南瓜粥 + 凉拌豆芽
+
+周五：
+早餐：荞麦面 + 西兰花炒木耳
+午餐：紫薯饭 + 白灼虾 + 清炒莴笋
+晚餐：山药粥 + 清炒豆角
+
+周六：
+早餐：黑米粥 + 凉拌生菜
+午餐：燕麦饭 + 去皮鸡腿 + 清炒时蔬
+晚餐：蔬菜汤 + 蒸南瓜
+
+周日：
+早餐：玉米糊 + 水煮蛋 + 凉拌黄瓜
+午餐：高粱米饭 + 炒虾仁 + 清炒油麦菜
+晚餐：香菇青菜汤 + 蒸南瓜
+
+💡 关键提醒：
+1. 主食换成粗粮（糙米、燕麦、玉米、红薯）
+2. 蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）
+3. 烹饪方式多用蒸、煮、凉拌，少油炸
+4. 每日饮水2000-3000ml，配合运动
+5. 加餐可选：一小把坚果、无糖酸奶或一个水果</p>
+<pre>{
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;一周三餐安排&quot;,
+    &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+    &quot;romVersion&quot;: &quot;CMS-AL20 7.0.0.111&quot;,
+    &quot;size&quot;: &quot;2x4&quot;,
+    &quot;title&quot;: &quot;减脂食谱&quot;,
+    &quot;uid&quot;: &quot;Genui-d31408b7-00476-000&quot;,
+    &quot;userQuery&quot;: &quot;把备忘录里的减脂食谱做成桌面卡片，显示一周三餐安排和关键提醒。本轮卡片静态内容（用作展示的外部事实）：📅 一周减脂食谱（周一至周日）\n\n周一：\n早餐：燕麦粥 + 水煮蛋 + 凉拌黄瓜\n午餐：糙米饭 + 清蒸鱼 + 清炒西兰花\n晚餐：杂粮粥 + 手撕包菜 + 素炒豆腐\n\n周二：\n早餐：全麦面包 + 脱脂牛奶 + 苹果\n午餐：红薯饭 + 炒鸡胸肉片 + 清炒菠菜\n晚餐：小米粥 + 清炒胡萝卜丝\n\n周三：\n早餐：玉米 + 西红柿炒鸡蛋\n午餐：荞麦馒头 + 凉拌海带丝\n晚餐：绿豆粥 + 清炒西葫芦\n\n周四：\n早餐：红豆薏仁粥 + 清炒油麦菜\n午餐：藜麦饭 + 香煎豆腐 + 白灼虾\n晚餐：南瓜粥 + 凉拌豆芽\n\n周五：\n早餐：荞麦面 + 西兰花炒木耳\n午餐：紫薯饭 + 白灼虾 + 清炒莴笋\n晚餐：山药粥 + 清炒豆角\n\n周六：\n早餐：黑米粥 + 凉拌生菜\n午餐：燕麦饭 + 去皮鸡腿 + 清炒时蔬\n晚餐：蔬菜汤 + 蒸南瓜\n\n周日：\n早餐：玉米糊 + 水煮蛋 + 凉拌黄瓜\n午餐：高粱米饭 + 炒虾仁 + 清炒油麦菜\n晚餐：香菇青菜汤 + 蒸南瓜\n\n💡 关键提醒：\n1. 主食换成粗粮（糙米、燕麦、玉米、红薯）\n2. 蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）\n3. 烹饪方式多用蒸、煮、凉拌，少油炸\n4. 每日饮水2000-3000ml，配合运动\n5. 加餐可选：一小把坚果、无糖酸奶或一个水果&quot;
+  },
+  &quot;description&quot;: &quot;一周三餐安排&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;CMS-AL20&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261103094317077&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;CMS-AL20 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x4&quot;,
+  &quot;title&quot;: &quot;减脂食谱&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;把备忘录里的减脂食谱做成桌面卡片，显示一周三餐安排和关键提醒。本轮卡片静态内容（用作展示的外部事实）：📅 一周减脂食谱（周一至周日）\n\n周一：\n早餐：燕麦粥 + 水煮蛋 + 凉拌黄瓜\n午餐：糙米饭 + 清蒸鱼 + 清炒西兰花\n晚餐：杂粮粥 + 手撕包菜 + 素炒豆腐\n\n周二：\n早餐：全麦面包 + 脱脂牛奶 + 苹果\n午餐：红薯饭 + 炒鸡胸肉片 + 清炒菠菜\n晚餐：小米粥 + 清炒胡萝卜丝\n\n周三：\n早餐：玉米 + 西红柿炒鸡蛋\n午餐：荞麦馒头 + 凉拌海带丝\n晚餐：绿豆粥 + 清炒西葫芦\n\n周四：\n早餐：红豆薏仁粥 + 清炒油麦菜\n午餐：藜麦饭 + 香煎豆腐 + 白灼虾\n晚餐：南瓜粥 + 凉拌豆芽\n\n周五：\n早餐：荞麦面 + 西兰花炒木耳\n午餐：紫薯饭 + 白灼虾 + 清炒莴笋\n晚餐：山药粥 + 清炒豆角\n\n周六：\n早餐：黑米粥 + 凉拌生菜\n午餐：燕麦饭 + 去皮鸡腿 + 清炒时蔬\n晚餐：蔬菜汤 + 蒸南瓜\n\n周日：\n早餐：玉米糊 + 水煮蛋 + 凉拌黄瓜\n午餐：高粱米饭 + 炒虾仁 + 清炒油麦菜\n晚餐：香菇青菜汤 + 蒸南瓜\n\n💡 关键提醒：\n1. 主食换成粗粮（糙米、燕麦、玉米、红薯）\n2. 蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）\n3. 烹饪方式多用蒸、煮、凉拌，少油炸\n4. 每日饮水2000-3000ml，配合运动\n5. 加餐可选：一小把坚果、无糖酸奶或一个水果&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>保持食谱日期与餐次的归属，不编造菜品；容量取舍须明确记录，不能把仅展示部分记录宣称完整一周三餐。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-d31408b7-00476-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-d31408b7-00476-000-plan-2</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_TEXT_CAPACITY: TextList最多三项，含标题最多两项；请在Plan核对已选记录与实际组件容量。SingleLineList仅适合能完整单行承载的短键值，不是记录数超限的通用替代；普通Plan沿原合同合理取舍并同步展示账本与遗漏声明，恢复Plan仍须保持固定事实。</td></tr>
+<tr><td>Genui-d31408b7-00476-000-plan-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-d31408b7-00476-000-plan-4</td><td>failed</td><td>pending</td><td>COMPACT_STATIC_TEXT_CAPACITY: 正文至少有一个object组，不能将全部正文移到shared标题或说明。</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-d31408b7-00476-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;W-static-content&quot;],&quot;presentationStyle&quot;:&quot;records&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;selectionNotes&quot;:[&quot;一周七日三餐共21条记录，2x4卡片无法全部承载，按用户用途取周一至周三三条每日三餐记录，保留完整早中晚内容。&quot;,&quot;采用带标题TextList：标题概括“一周减脂食谱”，正文两条记录需含标题时最多2项，故仅保留周一、周二两条完整三餐。&quot;,&quot;关键提醒容量不足，仅保留最核心的一条提醒作为第二条记录的说明不可行，改为省略并记录遗漏。&quot;],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;theme&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;整卡共同主题：一周减脂食谱&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;一周减脂食谱&quot;,&quot;sourceTexts&quot;:[&quot;📅 一周减脂食谱（周一至周日）&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;mon&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周一&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;meals&quot;,&quot;requirement&quot;:&quot;周一三餐：早餐燕麦粥+水煮蛋+凉拌黄瓜；午餐糙米饭+清蒸鱼+清炒西兰花；晚餐杂粮粥+手撕包菜+素炒豆腐&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;text&quot;:&quot;早：燕麦粥+水煮蛋+凉拌黄瓜；午：糙米饭+清蒸鱼+清炒西兰花；晚：杂粮粥+手撕包菜+素炒豆腐&quot;,&quot;sourceTexts&quot;:[&quot;早餐：燕麦粥 + 水煮蛋 + 凉拌黄瓜&quot;,&quot;午餐：糙米饭 + 清蒸鱼 + 清炒西兰花&quot;,&quot;晚餐：杂粮粥 + 手撕包菜 + 素炒豆腐&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;primaryText&quot;}]},{&quot;id&quot;:&quot;tue&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周二&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;meals&quot;,&quot;requirement&quot;:&quot;周二三餐：早餐全麦面包+脱脂牛奶+苹果；午餐红薯饭+炒鸡胸肉片+清炒菠菜；晚餐小米粥+清炒胡萝卜丝&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;text&quot;:&quot;早：全麦面包+脱脂牛奶+苹果；午：红薯饭+炒鸡胸肉片+清炒菠菜；晚：小米粥+清炒胡萝卜丝&quot;,&quot;sourceTexts&quot;:[&quot;早餐：全麦面包 + 脱脂牛奶 + 苹果&quot;,&quot;午餐：红薯饭 + 炒鸡胸肉片 + 清炒菠菜&quot;,&quot;晚餐：小米粥 + 清炒胡萝卜丝&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;primaryText&quot;}]}],&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;周三至周日共五天的三餐安排未展示&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;关键提醒：主食换粗粮、蛋白质选低脂、多用蒸煮凉拌、每日饮水2000-3000ml配合运动、加餐可选坚果或无糖酸奶或水果&quot;,&quot;factRefs&quot;:[]}]}}</pre><h4>Genui-d31408b7-00476-000-plan-2</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;W-static-content&quot;],&quot;selectionNotes&quot;:[&quot;2x4卡片容量有限，最多五条完整对象；选择周一、周二、周三、周四四天食谱加关键提醒共五个对象&quot;,&quot;每日三餐以一条记录概括，保留主食与主要菜品，突出粗粮与低脂蛋白原则&quot;,&quot;关键提醒合并为一条，涵盖粗粮主食、低脂蛋白、蒸煮凉拌三项核心&quot;,&quot;周五至周日食谱作为低优先级内容省略，记入omittedContents&quot;],&quot;presentationStyle&quot;:&quot;records&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;main_title&quot;,&quot;requirement&quot;:&quot;整卡主题标题&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;一周减脂食谱&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;sourceTexts&quot;:[&quot;📅 一周减脂食谱（周一至周日）&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;monday&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周一&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;monday_summary&quot;,&quot;requirement&quot;:&quot;周一三餐安排&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;早燕麦粥/午糙米饭清蒸鱼/晚杂粮粥&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;sourceTexts&quot;:[&quot;周一：\n早餐：燕麦粥 + 水煮蛋 + 凉拌黄瓜\n午餐：糙米饭 + 清蒸鱼 + 清炒西兰花\n晚餐：杂粮粥 + 手撕包菜 + 素炒豆腐&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]},{&quot;id&quot;:&quot;tuesday&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周二&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;tuesday_summary&quot;,&quot;requirement&quot;:&quot;周二三餐安排&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;早全麦面包/午红薯饭炒鸡胸肉/晚小米粥&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;sourceTexts&quot;:[&quot;周二：\n早餐：全麦面包 + 脱脂牛奶 + 苹果\n午餐：红薯饭 + 炒鸡胸肉片 + 清炒菠菜\n晚餐：小米粥 + 清炒胡萝卜丝&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]},{&quot;id&quot;:&quot;wednesday&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周三&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;wednesday_summary&quot;,&quot;requirement&quot;:&quot;周三三餐安排&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;早玉米/午荞麦馒头凉拌海带丝/晚绿豆粥&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;sourceTexts&quot;:[&quot;周三：\n早餐：玉米 + 西红柿炒鸡蛋\n午餐：荞麦馒头 + 凉拌海带丝\n晚餐：绿豆粥 + 清炒西葫芦&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]},{&quot;id&quot;:&quot;thursday&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;周四&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;thursday_summary&quot;,&quot;requirement&quot;:&quot;周四三餐安排&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;早红豆薏仁粥/午藜麦饭香煎豆腐白灼虾/晚南瓜粥&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;sourceTexts&quot;:[&quot;周四：\n早餐：红豆薏仁粥 + 清炒油麦菜\n午餐：藜麦饭 + 香煎豆腐 + 白灼虾\n晚餐：南瓜粥 + 凉拌豆芽&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]},{&quot;id&quot;:&quot;reminder_core&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;关键提醒&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;reminder_summary&quot;,&quot;requirement&quot;:&quot;减脂关键提醒&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;主食换粗粮，蛋白选鱼虾去皮鸡肉豆腐，多蒸煮凉拌少油炸&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;],&quot;sourceTexts&quot;:[&quot;1. 主食换成粗粮（糙米、燕麦、玉米、红薯）\n2. 蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）\n3. 烹饪方式多用蒸、煮、凉拌，少油炸&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]}],&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;周五三餐食谱未选入（容量限制）&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;周六三餐食谱未选入（容量限制）&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;周日三餐食谱未选入（容量限制）&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;每日饮水2000-3000ml配合运动提醒未选入&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;加餐建议（坚果、无糖酸奶或水果）未选入&quot;,&quot;factRefs&quot;:[]}]}}</pre><h4>Genui-d31408b7-00476-000-plan-3</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;W-static-content&quot;],&quot;presentationStyle&quot;:&quot;records&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;selectionNotes&quot;:[&quot;2x4小卡容量有限，无法逐日展示一周三餐全部菜品，按用户用途提炼为可执行的每日要点&quot;,&quot;采用带标题的两条TextList：一条概括一周三餐主食与蛋白结构，一条承载关键提醒&quot;,&quot;七天完整菜谱与逐条提醒作为独立补充未选入，记录于omittedContents&quot;],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;t1&quot;,&quot;requirement&quot;:&quot;整卡共同主题：一周减脂食谱&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;一周减脂食谱&quot;,&quot;sourceTexts&quot;:[&quot;📅 一周减脂食谱（周一至周日）&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;title&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;]}]},{&quot;id&quot;:&quot;week_plan&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;一周三餐&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;main&quot;,&quot;requirement&quot;:&quot;一周三餐以粗粮主食搭配低脂蛋白，烹饪多用蒸煮凉拌&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;主食粗粮，蛋白选鱼虾、去皮鸡肉、豆腐&quot;,&quot;sourceTexts&quot;:[&quot;主食换成粗粮（糙米、燕麦、玉米、红薯）&quot;,&quot;蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）&quot;,&quot;烹饪方式多用蒸、煮、凉拌，少油炸&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;primaryText&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;]},{&quot;id&quot;:&quot;detail&quot;,&quot;requirement&quot;:&quot;每日饮水与加餐建议&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;每日饮水2000-3000ml，配合运动&quot;,&quot;sourceTexts&quot;:[&quot;每日饮水2000-3000ml，配合运动&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;secondaryText&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;]}]},{&quot;id&quot;:&quot;snack&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:&quot;加餐&quot;,&quot;facts&quot;:[{&quot;id&quot;:&quot;snack_item&quot;,&quot;requirement&quot;:&quot;加餐可选坚果、无糖酸奶或水果&quot;,&quot;priority&quot;:&quot;should&quot;,&quot;text&quot;:&quot;一小把坚果、无糖酸奶或一个水果&quot;,&quot;sourceTexts&quot;:[&quot;加餐可选：一小把坚果、无糖酸奶或一个水果&quot;],&quot;protectedTexts&quot;:[],&quot;displayRole&quot;:&quot;primaryText&quot;,&quot;componentHints&quot;:[&quot;TextList&quot;]}]}],&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;周一至周日每日早中晚三餐的具体菜品清单未逐日展示&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;加餐建议（一小把坚果、无糖酸奶或一个水果）因卡片容量未纳入展示&quot;,&quot;factRefs&quot;:[{&quot;groupId&quot;:&quot;snack&quot;,&quot;factId&quot;:&quot;snack_item&quot;}]}]}}</pre><h4>Genui-d31408b7-00476-000-plan-4</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;W-static-content&quot;],&quot;selectionNotes&quot;:[&quot;一周21餐无法全部展示，2x4卡片以关键提醒为核心，食谱结构通过主题与提醒体现。&quot;,&quot;采用content/EmphasisText承载一个核心结论（主食换粗粮）及从属提醒，适合单核心结论带辅助说明。&quot;,&quot;四条关键提醒均来自显式事实段，第5条加餐提示因容量限制省略，完整食谱明细省略并记录。&quot;,&quot;paletteFamily保持auto，用户未指定色系。&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;周一至周日完整三餐食谱明细（共21餐）因卡片容量限制无法展示&quot;,&quot;factRefs&quot;:[]},{&quot;description&quot;:&quot;关键提醒第5条：加餐可选一小把坚果、无糖酸奶或一个水果&quot;,&quot;factRefs&quot;:[]}],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;theme&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;展示卡片主题：一周减脂食谱&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;一周减脂食谱&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;sourceTexts&quot;:[&quot;📅 一周减脂食谱（周一至周日）&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;reminder&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;main_text&quot;,&quot;requirement&quot;:&quot;核心结论：主食换成粗粮&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;主食换成粗粮（糙米、燕麦、玉米、红薯）&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;sourceTexts&quot;:[&quot;1. 主食换成粗粮（糙米、燕麦、玉米、红薯）&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;protein&quot;,&quot;requirement&quot;:&quot;蛋白质选低脂来源&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;蛋白质选低脂：鱼虾、去皮鸡肉、豆腐&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;sourceTexts&quot;:[&quot;2. 蛋白质选低脂的（鱼虾、去皮鸡肉、豆腐）&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;cooking&quot;,&quot;requirement&quot;:&quot;烹饪方式多用蒸煮凉拌少油炸&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;烹饪多用蒸、煮、凉拌，少油炸&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;sourceTexts&quot;:[&quot;3. 烹饪方式多用蒸、煮、凉拌，少油炸&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;},{&quot;id&quot;:&quot;water&quot;,&quot;requirement&quot;:&quot;每日饮水2000-3000ml配合运动&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;每日饮水2000-3000ml，配合运动&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;sourceTexts&quot;:[&quot;4. 每日饮水2000-3000ml，配合运动&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]}]}}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>在相同明确验收范围内更完整且可读。只显示两天却声称展示一周不能算改善。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-d31408b7-00476-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-d31408b7-00476-000.case.json</p>
+<h2 id="case12">12 生日蛋糕</h2><p>业务编号：Genui-f8832a28-00164-000；版本：1。</p>
+<h3>设计理由</h3><p>极简需求检验常见静态卡片基础能力，防止复杂场景优化损害简单场景。</p><h3>需要检测的问题</h3><p>蛋糕主题、合法素材和祝福；不虚构年龄姓名生日。</p>
+<h3>固定输入了什么</h3><p>帮我制作一个生日蛋糕卡片</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.cake_fill&quot;
+  ]
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [
+    &quot;asset.cake_fill&quot;
+  ],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [
+      &quot;asset.cake_fill&quot;
+    ],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;生日蛋糕祝福卡片&quot;,
+    &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+    &quot;romVersion&quot;: &quot;CMM-AL10P 7.0.0.111&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;生日快乐&quot;,
+    &quot;uid&quot;: &quot;Genui-f8832a28-00164-000&quot;,
+    &quot;userQuery&quot;: &quot;帮我制作一个生日蛋糕卡片&quot;
+  },
+  &quot;description&quot;: &quot;生日蛋糕祝福卡片&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;CMM-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261026061945151&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;CMM-AL10P 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;生日快乐&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;帮我制作一个生日蛋糕卡片&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>保持生日蛋糕主题和合法蛋糕素材；不得虚构姓名、年龄或生日日期；人工核对蛋糕主题是否真正呈现。</li>
+<li>以原始请求为依据核对必需对象、条件及动作；不能只因内部计划自洽就认定需求完成。信息不足须如实说明，不能伪造事实或能力。</li>
+<li>交付内容完整可读，动作和数据含义符合请求；明确的拒绝场景按预期拒绝原因评审。浏览器预览不替代真机验收。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>Genui-f8832a28-00164-000-dsl-3</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-f8832a28-00164-000-plan-1</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-f8832a28-00164-000-plan-2</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+<tr><td>Genui-f8832a28-00164-000-theme-4</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>Genui-f8832a28-00164-000-dsl-3</h4><pre>```genui
+[&quot;root&quot;,&quot;Layout&quot;,{&quot;layout&quot;:&quot;S-static-content&quot;},[&quot;header&quot;,&quot;body&quot;]]
+[&quot;header&quot;,&quot;SingleLineTitle&quot;,{&quot;title&quot;:&quot;生日快乐&quot;,&quot;icon&quot;:&quot;asset.cake_fill&quot;}]
+[&quot;body&quot;,&quot;SingleLineList&quot;,{&quot;items&quot;:[{&quot;text&quot;:&quot;祝福&quot;,&quot;assist&quot;:&quot;快乐每一天&quot;}]}]
+[&quot;/state/ready&quot;,true]
+```</pre><h4>Genui-f8832a28-00164-000-plan-1</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[],&quot;title&quot;:{&quot;assetId&quot;:&quot;asset.cake_fill&quot;,&quot;reason&quot;:&quot;生日蛋糕图标与卡片主题语义匹配&quot;}},&quot;selectionNotes&quot;:[&quot;用户仅要求制作生日蛋糕卡片，未提供具体生日对象、日期或祝福语，故以庆祝主题的简短祝福为核心内容&quot;,&quot;采用EmphasisText承载单一核心祝福结论，配合SingleLineTitle主题标题&quot;,&quot;未编造寿星姓名、年龄或日期等未提供的事实&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;omittedContents&quot;:[],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;theme&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;整卡共同主题：生日蛋糕庆祝&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;生日快乐&quot;,&quot;sourceTexts&quot;:[&quot;帮我制作一个生日蛋糕卡片&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;]}]},{&quot;id&quot;:&quot;wish&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;main&quot;,&quot;requirement&quot;:&quot;核心祝福结论&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;愿你的每一天都像蛋糕一样甜蜜&quot;,&quot;sourceTexts&quot;:[&quot;帮我制作一个生日蛋糕卡片&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;]}]}]}}</pre><h4>Genui-f8832a28-00164-000-plan-2</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;layoutHints&quot;:[&quot;S-static-content&quot;],&quot;assetAssignments&quot;:{&quot;actions&quot;:[],&quot;title&quot;:{&quot;assetId&quot;:&quot;asset.cake_fill&quot;,&quot;reason&quot;:&quot;匹配生日蛋糕语义&quot;}},&quot;selectionNotes&quot;:[&quot;EmphasisText主文本需2行内，将祝福语精简为更短版本&quot;,&quot;保留主题标题与核心祝福结论&quot;],&quot;presentationStyle&quot;:&quot;content&quot;,&quot;paletteFamily&quot;:&quot;auto&quot;,&quot;omittedContents&quot;:[{&quot;description&quot;:&quot;较长祝福语版本因主文本行数超限省略&quot;,&quot;factRefs&quot;:[]}],&quot;contentGroups&quot;:[{&quot;id&quot;:&quot;title_group&quot;,&quot;kind&quot;:&quot;shared&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;title&quot;,&quot;requirement&quot;:&quot;展示卡片主题为生日蛋糕&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;],&quot;text&quot;:&quot;生日快乐&quot;,&quot;sourceTexts&quot;:[&quot;帮我制作一个生日蛋糕卡片&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;title&quot;}]},{&quot;id&quot;:&quot;message_group&quot;,&quot;kind&quot;:&quot;object&quot;,&quot;identity&quot;:null,&quot;facts&quot;:[{&quot;id&quot;:&quot;message&quot;,&quot;requirement&quot;:&quot;展示生日祝福核心文字&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;componentHints&quot;:[&quot;EmphasisText&quot;],&quot;text&quot;:&quot;祝你生日快乐！&quot;,&quot;sourceTexts&quot;:[&quot;帮我制作一个生日蛋糕卡片&quot;],&quot;protectedTexts&quot;:[],&quot;preserveVerbatim&quot;:false,&quot;displayRole&quot;:&quot;body&quot;}]}]}}</pre><h4>Genui-f8832a28-00164-000-theme-4</h4><pre>{&quot;themeId&quot;:&quot;gradient-warm&quot;,&quot;preferences&quot;:[]}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>新版主题呈现更清晰且无额外虚构；程序通过仍需视觉语义评审。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\Genui-f8832a28-00164-000.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\Genui-f8832a28-00164-000.case.json</p>
+<h2 id="case13">13 周末出行标题保留</h2><p>业务编号：plan-title-example；版本：1。</p>
+<h3>设计理由</h3><p>最小控制用例，检验明确标题保留，并作为复杂场景回归的对照。</p><h3>需要检测的问题</h3><p>可见标题周末出行、不新增动态数据或动作、基本产物合法。</p>
+<h3>固定输入了什么</h3><p>制作一张标题为周末出行的文字卡片</p>
+<pre>{
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;candidateAssetIds&quot;: []
+}</pre>
+<details><summary>完整固定微服务请求</summary><pre>{
+  &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+  &quot;candidateAssetIds&quot;: [],
+  &quot;candidateDataBindings&quot;: [],
+  &quot;candidateEventCandidates&quot;: [],
+  &quot;content&quot;: {
+    &quot;bundleName&quot;: &quot;com.huawei.genui&quot;,
+    &quot;candidateAssetIds&quot;: [],
+    &quot;candidateDataBindings&quot;: [],
+    &quot;candidateEventCandidates&quot;: [],
+    &quot;description&quot;: &quot;周末出行文字卡片&quot;,
+    &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+    &quot;romVersion&quot;: &quot;CMM-AL10P 7.0.0.111&quot;,
+    &quot;size&quot;: &quot;2x2&quot;,
+    &quot;title&quot;: &quot;周末出行&quot;,
+    &quot;uid&quot;: &quot;synthetic-weekend-title&quot;,
+    &quot;userQuery&quot;: &quot;制作一张标题为周末出行的文字卡片&quot;
+  },
+  &quot;description&quot;: &quot;周末出行文字卡片&quot;,
+  &quot;deviceInfo&quot;: {
+    &quot;countryCode&quot;: &quot;CN&quot;,
+    &quot;deviceFormation&quot;: &quot;HDSpeaker&quot;,
+    &quot;deviceType&quot;: 0,
+    &quot;locale&quot;: &quot;zh-CN&quot;,
+    &quot;phoneType&quot;: &quot;CMM-AL10&quot;,
+    &quot;prdVer&quot;: &quot;11.7.8.342&quot;,
+    &quot;sysVer&quot;: &quot;EmotionUI_9.0.0&quot;,
+    &quot;time&quot;: &quot;20261026061945151&quot;
+  },
+  &quot;functionName&quot;: &quot;generateWidgetCardCompactDsl&quot;,
+  &quot;pagination&quot;: {
+    &quot;limit&quot;: 5,
+    &quot;start&quot;: &quot;&quot;
+  },
+  &quot;romVersion&quot;: &quot;CMM-AL10P 7.0.0.111&quot;,
+  &quot;session&quot;: {
+    &quot;interactionId&quot;: &quot;0&quot;,
+    &quot;isNew&quot;: false,
+    &quot;sessionId&quot;: &quot;00000000-0000-0000-0000-000000000000&quot;
+  },
+  &quot;size&quot;: &quot;2x2&quot;,
+  &quot;title&quot;: &quot;周末出行&quot;,
+  &quot;userAuth&quot;: {
+    &quot;user&quot;: {}
+  },
+  &quot;userQuery&quot;: &quot;制作一张标题为周末出行的文字卡片&quot;,
+  &quot;utterance&quot;: {
+    &quot;original&quot;: &quot;&quot;,
+    &quot;type&quot;: &quot;text&quot;
+  },
+  &quot;version&quot;: &quot;1.0&quot;
+}</pre></details>
+<h3>正确输出与验收标准</h3><p>草稿预期服务终态：success。服务终态符合不等于业务通过。</p><ul>
+<li>卡片可见标题保留周末出行；不虚构动态数据或点击动作。</li>
+</ul><h3>测试后实际输出了什么</h3><p><strong>新业务链路：尚无验收完成的运行结果，不能填写“已通过”。</strong></p>
+<p>已有历史阶段证据如下。各阶段固定不同输入，不能拼成同一次端到端结果：</p><table><tr><th>阶段项</th><th>程序结果</th><th>语义</th><th>诊断</th></tr>
+<tr><td>plan-title-example</td><td>passed</td><td>pending</td><td>无程序错误；仍需人工评审</td></tr>
+</table><details><summary>展开历史模型原始输出（完整响应）</summary><h4>plan-title-example</h4><pre>{&quot;name&quot;:&quot;submit_card_plan&quot;,&quot;arguments&quot;:{&quot;info_required&quot;:[{&quot;requirement&quot;:&quot;卡片标题显示“周末出行”&quot;,&quot;priority&quot;:&quot;must&quot;,&quot;text&quot;:&quot;周末出行&quot;,&quot;componentHints&quot;:[&quot;SingleLineTitle&quot;]}],&quot;layoutHints&quot;:[&quot;S-title-content-action&quot;]}}</pre></details>
+<h3>如何证明迭代改善或回退</h3><p>相同标题要求保持，失败是明确回退；更换合法组件本身不算变化。</p><p>逐项对照上面的固定业务标准，为A、B分别保存输出证据和评审理由；先判断业务是否满足，再比较修复依赖、调用次数和耗时。任何未知项保持待审。</p>
+<h3>当前限制与分工</h3><p>测试负责人确认业务验收草稿；执行负责人冻结请求与环境并跑A/B；评审人员检查产物和实际动作证据；提示词负责人根据真实阶段路径定位问题。</p>
+<p>请求文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\plan-title-example.json<br>定义文件：D:\CreateMyCard\debug_tools\Datasets\business_requests\evaluation\plan-title-example.case.json</p>
+<h2>3 待处理材料与最终验收</h2><p>告警继续请求 Genui-fafce94f-00172-000 尚未完成请求级脱敏和入库核验，未计入13个定义。预检拒绝用例因能力环境证据不足保持阻塞。合成标题示例已补充公开请求包络，但尚未由新执行器实际验收。</p><p>历史批次共有51个阶段项、38项程序通过待审、13项程序失败；这不是13个业务用例的通过率。不得将这些数值作为本次业务链路改造后的基线。</p><p>文档验收：13个定义全部列出设计理由、检测问题、固定输入、预期、历史输出和版本判断依据；完整请求及历史响应置于折叠区。改造验收另须证明真实入口执行、输入快照不变、各阶段传递本次结果、停止与预算有界、评审证据绑定正确，以及A/B可比条件受检查。</p></html>
